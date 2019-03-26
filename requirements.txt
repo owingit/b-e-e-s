@@ -1,0 +1,6 @@
+# to install, run pip install -r requirements.txt
+
+matplotlib
+numpy
+networkx
+
