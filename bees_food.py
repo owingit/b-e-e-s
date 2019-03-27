@@ -312,6 +312,14 @@ def main():
 				bee_array.append(Bee(j, thetastar, x.flatten(), y.flatten(), side_length, STEPS, rando, initially_fed))
 
 			random_walk(bee_array, side_length, thetastar_range, STEPS, food_distribution_vs_time)
+			fed_counter = 0
+			unfed_counter = 0
+			for bee in bee_array:
+				if bee.food_level > FOOD_THRESHOLD:
+					fed_counter += 1
+				else:
+					unfed_counter += 1
+			print "Fed bees: {}, Hungry bees: {}".format(fed_counter, unfed_counter)
 
 	for ts in food_distribution_vs_time.keys():
 		for step in food_distribution_vs_time[ts].keys():
