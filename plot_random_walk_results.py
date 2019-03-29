@@ -17,12 +17,12 @@ def read_and_plot_data():
     with open('steps_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
             counts, side_length, side_length, steps), 'r') as fp:
         steps_between_data = collections.OrderedDict(json.load(fp))
-    with open('encounters_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
-            counts, side_length, side_length, steps), 'r') as fp2:
-        encounters_data = collections.OrderedDict(json.load(fp2))
-    with open('unique_encounters_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
-            counts, side_length, side_length, steps), 'r') as fp3:
-        unique_encounters_data = collections.OrderedDict(json.load(fp3))
+#    with open('encounters_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
+#          counts, side_length, side_length, steps), 'r') as fp2:
+#        encounters_data = collections.OrderedDict(json.load(fp2))
+#    with open('unique_encounters_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
+#          counts, side_length, side_length, steps), 'r') as fp3:
+#        unique_encounters_data = collections.OrderedDict(json.load(fp3))
     with open('unique_encounters_up_to_stepcount_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
             counts, side_length, side_length, steps), 'r') as fp4:
         unique_encounters_up_to_stepcount_data = collections.OrderedDict(json.load(fp4))
@@ -32,7 +32,7 @@ def read_and_plot_data():
         gs_up_to_stepcount_data = collections.OrderedDict(json.load(fp5))
 
     plot_avg_steps_between(steps_between_data, counts, side_length, steps, num_trials)
-    plot_encounters(encounters_data, unique_encounters_data, counts, side_length, steps, num_trials)
+#    plot_encounters(encounters_data, unique_encounters_data, counts, side_length, steps, num_trials)
     plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, counts, side_length, steps, num_trials)
     plot_gs_up_to_stepcount_data(gs_up_to_stepcount_data, counts, side_length, steps, num_trials)
 
@@ -106,5 +106,5 @@ def plot_gs_up_to_stepcount_data(gs_up_to_stepcount_data, counts, side_length, s
     plt.show()
 
 
-# read_and_plot_data()
-read_and_plot_food_data()
+read_and_plot_data()
+#read_and_plot_food_data()

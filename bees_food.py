@@ -293,6 +293,7 @@ def main():
 
 	side_length = int(input("How long is each side of the arena?"))
 	for trial in range(0, NUM_TRIALS):
+		# thread by trial!
 		print "Trial {}".format(trial)
 		for thetastar in THETASTARS:
 			bee_array = []

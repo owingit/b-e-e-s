@@ -5,6 +5,7 @@ import itertools
 import networkx as nx
 
 import sys
+import time
 
 import random
 import numpy as np
@@ -563,5 +564,7 @@ def main():
 
 
 if __name__ == "__main__":
+	start_time = time.time()
 	main()
+	print "--- %s seconds ---" % (time.time() - start_time)
 
