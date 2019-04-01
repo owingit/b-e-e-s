@@ -57,15 +57,16 @@ steps_to_encounter = collections.OrderedDict()
 
 
 class BeeThread(threading.Thread):
-    def __init__(self, thread_id, name, counter):
+    def __init__(self, activate_food, thread_id, name, counter):
         threading.Thread.__init__(self)
+        self.is_tracking_food = activate_food
         self.thread_id = thread_id
         self.name = name
         self.counter = counter
 
     def run(self):
         print "Starting trial {}".format(self.thread_id)
-        run_everything(self.name)
+        run_everything(self.is_tracking_food, self.name)
 
 
 class Bee:
@@ -104,6 +105,7 @@ class Bee:
         self.placed = False
         self.step_count_of_last_encounter = [0]
         self.step_count_of_last_unique_encounter = [0]
+        self.counts_for_encounter = True
 
 
 def write_data():
@@ -120,17 +122,18 @@ def write_data():
 
 
 def setup_results():
-    for key in gs_up_to_stepcount.keys():
-        for ccsize in gs_up_to_stepcount[key].keys():
-            gs_up_to_stepcount[key][ccsize] = gs_up_to_stepcount[key][ccsize] / (NUM_TRIALS)
+    for thetastar in THETASTARS:
+        ts = thetastar[-1] - thetastar[0]
+        for ccsize in gs_up_to_stepcount[ts].keys():
+            gs_up_to_stepcount[ts][ccsize] = gs_up_to_stepcount[ts][ccsize] / (NUM_TRIALS)
         for sc in step_counts:
-            total_encounters_up_to_stepcount[key][sc] = total_encounters_up_to_stepcount[key][sc] // NUM_TRIALS
-            unique_encounters_up_to_stepcount[key][sc] = unique_encounters_up_to_stepcount[key][sc] // NUM_TRIALS
-            if total_encounters_up_to_stepcount[key][sc] > 0:
-                unique_encounters_up_to_stepcount[key][sc] = (unique_encounters_up_to_stepcount[key][sc] /
-                                                              total_encounters_up_to_stepcount[key][sc]) * 100
+            total_encounters_up_to_stepcount[ts][sc] = total_encounters_up_to_stepcount[ts][sc] // NUM_TRIALS
+            unique_encounters_up_to_stepcount[ts][sc] = unique_encounters_up_to_stepcount[ts][sc] // NUM_TRIALS
+            if total_encounters_up_to_stepcount[ts][sc] > 0:
+                unique_encounters_up_to_stepcount[ts][sc] = (unique_encounters_up_to_stepcount[ts][sc] /
+                                                              total_encounters_up_to_stepcount[ts][sc])
             else:
-                unique_encounters_up_to_stepcount[key][sc] = 0
+                unique_encounters_up_to_stepcount[ts][sc] = 0
     for key in steps_to_encounter.keys():
         steps_to_encounter[key][0] = steps_to_encounter[key][0] / NUM_TRIALS
         steps_to_encounter[key][1] = steps_to_encounter[key][1] / NUM_TRIALS
@@ -142,6 +145,65 @@ def initialize_result_dictionaries():
         unique_encounters_up_to_stepcount[thetastar] = collections.OrderedDict()
         total_encounters_up_to_stepcount[thetastar] = collections.OrderedDict()
         gs_up_to_stepcount[thetastar] = collections.OrderedDict()
+
+
+def what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_array, a, b,
+                                     unique_encounters=None, encounters=None):
+    # encounter logic
+    if (a, b) not in encounters and (b, a) not in encounters:
+        if bee_array[a].counts_for_encounter and bee_array[b].counts_for_encounter:
+            encounters.append((a, b))
+            if g.has_edge(a, b) or g.has_edge(b, a):
+                g.edges[a, b]['weight'] += 1
+            else:
+                g.add_edge(a, b, weight=1)
+            if a < COUNTS or b < COUNTS:
+                bee_array[a].step_count_of_last_encounter.append(current_step)
+                bee_array[b].step_count_of_last_encounter.append(current_step)
+            if (a, b) not in unique_encounters and (b, a) not in unique_encounters:
+                if a < COUNTS or b < COUNTS:
+                    bee_array[a].step_count_of_last_unique_encounter.append(current_step)
+                    bee_array[b].step_count_of_last_unique_encounter.append(current_step)
+                unique_encounters.append((a, b))
+
+            # trophallaxis logic
+        if is_tracking_food:
+            if bee_array[a].food_level > bee_array[b].food_level:
+                if bee_array[a].donor is None and bee_array[b].receiver is None:
+                    # trophallaxis encounter
+                    bee_array[a].donor = a
+                    bee_array[a].receiver = b
+                    bee_array[b].donor = a
+                    bee_array[b].receiver = b
+                    steps_while_feeding = (bee_array[a].food_level - bee_array[
+                        b].food_level) / FOOD_TRANSFER_RATE
+                    bee_array[a].steps_to_wait = steps_while_feeding
+                    bee_array[b].steps_to_wait = steps_while_feeding
+                    bee_array[a].counts_for_encounter = False
+                    bee_array[b].counts_for_encounter = False
+            elif bee_array[a].food_level < bee_array[b].food_level:
+                if bee_array[a].donor is None and bee_array[b].receiver is None:
+                    # trophallaxis encounter
+                    bee_array[a].donor = b
+                    bee_array[a].receiver = a
+                    bee_array[b].donor = b
+                    bee_array[b].receiver = a
+                    steps_while_feeding = (bee_array[b].food_level - bee_array[
+                        a].food_level) / FOOD_TRANSFER_RATE
+                    bee_array[a].steps_to_wait = steps_while_feeding
+                    bee_array[b].steps_to_wait = steps_while_feeding
+                    bee_array[a].counts_for_encounter = False
+                    bee_array[b].counts_for_encounter = False
+            else:
+                # nothing happens encounter, move on
+                bee_array[a].donor = None
+                bee_array[a].receiver = None
+                bee_array[b].donor = None
+                bee_array[b].receiver = None
+                bee_array[a].steps_to_wait = 0
+                bee_array[b].steps_to_wait = 0
+                bee_array[a].counts_for_encounter = True
+                bee_array[b].counts_for_encounter = True
 
 
 def find_adjacent(x, y, m, n):
@@ -218,9 +280,9 @@ def feed(bee_array):
             seen_donors.append(donor)
 
 
-def engage(all_paths, g, current_step, n, bee_array, cells, thread_name, unique_encounters):
-    print "Current step: {} in thread: {}".format(current_step, thread_name)
-    encounters = []
+def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, thread_name, unique_encounters):
+    print "Current step: {} in thread: {}\n".format(current_step, thread_name)
+    encounters_at_this_step = []
     exclude_cells = []
     for cell in cells:
         locations_to_check = {}
@@ -272,45 +334,14 @@ def engage(all_paths, g, current_step, n, bee_array, cells, thread_name, unique_
                 op_b[1] = op_b[1] + (n - 1)
 
             if math.hypot(op_b[0] - op_a[0], op_b[1] - op_a[1]) <= vel and modified:
-                if (a, b) not in encounters and (b, a) not in encounters:
-                    encounters.append((a, b))
-                    if g.has_edge(a, b) or g.has_edge(b, a):
-                        g.edges[a, b]['weight'] += 1
-                    else:
-                        g.add_edge(a, b, weight=1)
-                    if a >= COUNTS or b >= COUNTS:
-                        continue
-                    else:
-                        bee_array[a].step_count_of_last_encounter.append(current_step)
-                        bee_array[b].step_count_of_last_encounter.append(current_step)
-                    if (a, b) not in unique_encounters and (b, a) not in unique_encounters:
-                        if a >= COUNTS or b >= COUNTS:
-                            continue
-                        else:
-                            bee_array[a].step_count_of_last_unique_encounter.append(current_step)
-                            bee_array[b].step_count_of_last_unique_encounter.append(current_step)
-                        unique_encounters.append((a, b))
+                what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_array, a, b,
+                                                 unique_encounters, encounters_at_this_step)
 
             if math.hypot(ordered_pair_b[0] - ordered_pair_a[0],
                           ordered_pair_b[1] - ordered_pair_a[1]) <= vel and not modified:
-                if (a, b) not in encounters and (b, a) not in encounters:
-                    encounters.append((a, b))
-                    if g.has_edge(a, b) or g.has_edge(b, a):
-                        g.edges[a, b]['weight'] += 1
-                    else:
-                        g.add_edge(a, b, weight=1)
-                    if a >= COUNTS or b >= COUNTS:
-                        continue
-                    else:
-                        bee_array[a].step_count_of_last_encounter.append(current_step)
-                        bee_array[b].step_count_of_last_encounter.append(current_step)
-                    if (a, b) not in unique_encounters and (b, a) not in unique_encounters:
-                        if a >= COUNTS or b >= COUNTS:
-                            continue
-                        else:
-                            bee_array[a].step_count_of_last_unique_encounter.append(current_step)
-                            bee_array[b].step_count_of_last_unique_encounter.append(current_step)
-                        unique_encounters.append((a, b))
+                what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_array, a, b,
+                                                 unique_encounters, encounters_at_this_step)
+
         exclude_cells.append(cell)
 
     if len(g.edges()) > 0:
@@ -331,15 +362,15 @@ def engage(all_paths, g, current_step, n, bee_array, cells, thread_name, unique_
             else:
                 unique_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(unique_encounters)
 
-    if len(encounters) > 0:
+    if len(encounters_at_this_step) > 0:
         thetastar_to_save = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
         if current_step in step_counts:
             if current_step in total_encounters_up_to_stepcount[thetastar_to_save]:
-                total_encounters_up_to_stepcount[thetastar_to_save][current_step] += len(encounters)
+                total_encounters_up_to_stepcount[thetastar_to_save][current_step] += len(encounters_at_this_step)
             else:
-                total_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(encounters)
+                total_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(encounters_at_this_step)
 
-    return len(encounters)
+    return len(encounters_at_this_step)
     # ALL_PATHS[bee_number][current_step] has the location to compare
     # 0   1  2  3  4
     # 5   6  7  8  9
@@ -385,7 +416,9 @@ def populate_cell(all_paths, bee_number, step_i, cell_length, cells, bee_array):
         print "Something went wrong! x_coord = {}, y_coord = {}".format(x_coord, y_coord)
 
 
-def random_walk(all_paths, bee_array, n, step_count, thread_name, unique_encounters):
+def random_walk(all_paths, bee_array, n, step_count, thread_name,
+                distribution_dict, unique_encounters):
+    tracking_food = True if distribution_dict is not None else False
     g = nx.Graph()
     num_encounters = 0
     cells = dict()
@@ -426,6 +459,8 @@ def random_walk(all_paths, bee_array, n, step_count, thread_name, unique_encount
                 bee.direction[step_i] = bee.direction[step_i - 1]
                 bee.positionx[step_i] = bee.positionx[step_i - 1]
                 bee.positiony[step_i] = bee.positiony[step_i - 1]
+                populate_cell(all_paths, bee.number, step_i, cell_length, cells, bee_array)
+                bee.placed = False
                 bee.steps_to_wait -= 1
                 feed(bee_array)
                 if bee.steps_to_wait == 0:
@@ -436,19 +471,26 @@ def random_walk(all_paths, bee_array, n, step_count, thread_name, unique_encount
         for cell_num in range(0, NUM_CELLS):
             occupant_master_list.extend(cells[cell_num]['occupants'])
         assert len(occupant_master_list) == COUNTS
-        num_encounters += engage(all_paths, g, step_i, n, bee_array, cells, thread_name, unique_encounters)
+        num_encounters += engage(tracking_food, all_paths, g, step_i, n, bee_array, cells, thread_name, unique_encounters)
         for cell_num in range(0, NUM_CELLS):
             cells[cell_num]['occupants'] = []
-        # fed_bees = [bee for bee in bee_array if bee.food_level > FOOD_THRESHOLD]
-        # num_of_fed_bees = len(fed_bees)
-        # if step_i in distribution_dict[thetastar]:
-        #     distribution_dict[thetastar][step_i] += num_of_fed_bees
-        # else:
-        #     distribution_dict[thetastar][step_i] = num_of_fed_bees
+        if distribution_dict is not None:
+            fed_bees = [bee for bee in bee_array if bee.food_level > FOOD_THRESHOLD]
+            num_of_fed_bees = len(fed_bees)
+            if step_i in distribution_dict[thetastar]:
+                distribution_dict[thetastar][step_i] += num_of_fed_bees
+            else:
+                distribution_dict[thetastar][step_i] = num_of_fed_bees
     return num_encounters
 
 
-def run_everything(thread_name):
+def run_everything(is_tracking_food, thread_name):
+    food_distribution_vs_time = None
+    if is_tracking_food:
+        food_distribution_vs_time = collections.OrderedDict()
+        for ts in THETASTARS:
+            thetastar = ts[-1] - ts[0]
+            food_distribution_vs_time[thetastar] = collections.OrderedDict()
     # thread by trial!
     for thetastar in THETASTARS:
         all_paths = np.zeros((COUNTS, STEPS), dtype=(float, 2))
@@ -473,7 +515,8 @@ def run_everything(thread_name):
             bee_array.append(Bee(j, thetastar, x.flatten(), y.flatten(), side_length, STEPS, 1,
                                  initially_fed))
 
-        num_encounters = random_walk(all_paths, bee_array, side_length, STEPS, thread_name, unique_encounters)
+        num_encounters = random_walk(all_paths, bee_array, side_length, STEPS, thread_name,
+                                     food_distribution_vs_time, unique_encounters)
         steps_since_encounter = 0
         steps_since_unique_encounter = 0
         for bee in bee_array:
@@ -536,10 +579,14 @@ def run_everything(thread_name):
 
 def main():
     initialize_result_dictionaries()
+    activate_food = False
+    if sys.argv[1]:
+        if str.lower(sys.argv[1]) == 'food':
+            activate_food = True
 
     threads = []
     for trial in range(0, NUM_TRIALS):
-        thread = BeeThread(trial, "Thread-{}".format(trial), trial)
+        thread = BeeThread(activate_food, trial, "Thread-{}".format(trial), trial)
         threads.append(thread)
     for th in threads:
         th.start()
