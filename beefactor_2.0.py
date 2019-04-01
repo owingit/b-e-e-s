@@ -23,7 +23,6 @@ gs_up_to_stepcount = collections.OrderedDict()
 # constants
 COUNTS = int(input("How many agents? (Enter a perfect square, please :P) "))
 STEPS = int(input("How many steps?"))
-ALL_PATHS = np.zeros((COUNTS, STEPS), dtype=(float, 2))
 NS = [25, 50, 75, 100, 150, 200, 250, 500]
 THETASTARRANGE = 50
 THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), THETASTARRANGE) for i in
@@ -36,7 +35,7 @@ vel = 1.0  # step size, or velocity
 PCT_INITIALLY_CARRYING_FOOD = 10
 FOOD_TRANSFER_RATE = 10  # units / timestep
 FOOD_THRESHOLD = 5
-NUM_CELLS = 25
+NUM_CELLS = 49
 NUM_CELLS_PER_ROW = math.sqrt(NUM_CELLS)
 side_length = int(input("How long is each side of the arena?"))
 
@@ -65,9 +64,8 @@ class BeeThread(threading.Thread):
         self.counter = counter
 
     def run(self):
-        print "Starting trial" + self.name
-        run_everything()
-        print "Exiting trial" + self.name
+        print "Starting trial {}".format(self.thread_id)
+        run_everything(self.name)
 
 
 class Bee:
@@ -108,11 +106,11 @@ class Bee:
         self.step_count_of_last_unique_encounter = [0]
 
 
-def write_data(steps_between_data, side_length):
+def write_data():
     json_msg = '_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(COUNTS, side_length, side_length,
                                                                      STEPS)
     with open('steps' + json_msg, 'w') as fp:
-        json.dump(steps_between_data.items(), fp, sort_keys=True)
+        json.dump(steps_to_encounter.items(), fp, sort_keys=True)
     with open('unique_encounters_up_to_stepcount' + json_msg, 'w') as fp4:
         json.dump(unique_encounters_up_to_stepcount.items(), fp4, sort_keys=True)
     with open('total_encounters_up_to_stepcount' + json_msg, 'w') as fp5:
@@ -133,6 +131,9 @@ def setup_results():
                                                               total_encounters_up_to_stepcount[key][sc]) * 100
             else:
                 unique_encounters_up_to_stepcount[key][sc] = 0
+    for key in steps_to_encounter.keys():
+        steps_to_encounter[key][0] = steps_to_encounter[key][0] / NUM_TRIALS
+        steps_to_encounter[key][1] = steps_to_encounter[key][1] / NUM_TRIALS
 
 
 def initialize_result_dictionaries():
@@ -217,8 +218,8 @@ def feed(bee_array):
             seen_donors.append(donor)
 
 
-def engage(g, current_step, n, bee_array, cells, unique_encounters):
-    print "Current step: {}\n, Cell array: {}\n".format(current_step, cells)
+def engage(all_paths, g, current_step, n, bee_array, cells, thread_name, unique_encounters):
+    print "Current step: {} in thread: {}".format(current_step, thread_name)
     encounters = []
     exclude_cells = []
     for cell in cells:
@@ -231,9 +232,9 @@ def engage(g, current_step, n, bee_array, cells, unique_encounters):
         # print "Cell #{}, bees in cell: {}, neighbor bees: {}".format(cell, bees_in_cell,
         #                                                              neighbor_bees_to_cell)
         for bee in bees_in_cell:
-            locations_to_check[bee] = tuple(ALL_PATHS[bee][current_step])
+            locations_to_check[bee] = tuple(all_paths[bee][current_step])
         for bee in neighbor_bees_to_cell:
-            locations_to_check[bee] = tuple(ALL_PATHS[bee][current_step])
+            locations_to_check[bee] = tuple(all_paths[bee][current_step])
         for (a, ordered_pair_a), (b, ordered_pair_b) in itertools.combinations(
                 locations_to_check.items(), 2):
             # a, b are bee numbers
@@ -314,26 +315,29 @@ def engage(g, current_step, n, bee_array, cells, unique_encounters):
 
     if len(g.edges()) > 0:
         thetastar_to_save = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
-        if current_step in gs_up_to_stepcount[thetastar_to_save] and current_step in step_counts:
-            gs_up_to_stepcount[thetastar_to_save][current_step] += len(
-                max(nx.connected_components(g), key=len))
-        else:
-            gs_up_to_stepcount[thetastar_to_save][current_step] = len(
-                max(nx.connected_components(g), key=len))
+        if current_step in step_counts:
+            if current_step in gs_up_to_stepcount[thetastar_to_save]:
+                gs_up_to_stepcount[thetastar_to_save][current_step] += len(
+                    max(nx.connected_components(g), key=len))
+            else:
+                gs_up_to_stepcount[thetastar_to_save][current_step] = len(
+                    max(nx.connected_components(g), key=len))
 
     if len(unique_encounters) > 0:
         thetastar_to_save = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
-        if current_step in unique_encounters_up_to_stepcount[thetastar_to_save] and current_step in step_counts:
-            unique_encounters_up_to_stepcount[thetastar_to_save][current_step] += len(unique_encounters)
-        else:
-            unique_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(unique_encounters)
+        if current_step in step_counts:
+            if current_step in unique_encounters_up_to_stepcount[thetastar_to_save]:
+                unique_encounters_up_to_stepcount[thetastar_to_save][current_step] += len(unique_encounters)
+            else:
+                unique_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(unique_encounters)
 
     if len(encounters) > 0:
         thetastar_to_save = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
-        if current_step in total_encounters_up_to_stepcount[thetastar_to_save] and current_step in step_counts:
-            total_encounters_up_to_stepcount[thetastar_to_save][current_step] += len(encounters)
-        else:
-            total_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(encounters)
+        if current_step in step_counts:
+            if current_step in total_encounters_up_to_stepcount[thetastar_to_save]:
+                total_encounters_up_to_stepcount[thetastar_to_save][current_step] += len(encounters)
+            else:
+                total_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(encounters)
 
     return len(encounters)
     # ALL_PATHS[bee_number][current_step] has the location to compare
@@ -350,9 +354,9 @@ def engage(g, current_step, n, bee_array, cells, unique_encounters):
     # 5: 0, 1, 4, 6, 9, 10, 11, 14
 
 
-def populate_cell(bee_number, step_i, cell_length, cells, bee_array):
-    x_coord = ALL_PATHS[bee_number][step_i][0]
-    y_coord = ALL_PATHS[bee_number][step_i][1]
+def populate_cell(all_paths, bee_number, step_i, cell_length, cells, bee_array):
+    x_coord = all_paths[bee_number][step_i][0]
+    y_coord = all_paths[bee_number][step_i][1]
     x_to_save = -1
     y_to_save = -1
     for col in range(0, int(NUM_CELLS_PER_ROW)):
@@ -381,7 +385,7 @@ def populate_cell(bee_number, step_i, cell_length, cells, bee_array):
         print "Something went wrong! x_coord = {}, y_coord = {}".format(x_coord, y_coord)
 
 
-def random_walk(bee_array, n, step_count, unique_encounters):
+def random_walk(all_paths, bee_array, n, step_count, thread_name, unique_encounters):
     g = nx.Graph()
     num_encounters = 0
     cells = dict()
@@ -390,8 +394,8 @@ def random_walk(bee_array, n, step_count, unique_encounters):
         # for each cell, initialize a list that will hold bee numbers
         cells[cell_num] = {'neighbor_indices': [], 'occupants': []}
     for bee in bee_array:
-        ALL_PATHS[bee.number][0] = (bee.positionx[0], bee.positiony[0])
-        populate_cell(bee.number, 0, cell_length, cells, bee_array)
+        all_paths[bee.number][0] = (bee.positionx[0], bee.positiony[0])
+        populate_cell(all_paths, bee.number, 0, cell_length, cells, bee_array)
     for step_i in range(1, step_count):
         for bee in bee_array:
             g.add_node(bee.number)
@@ -413,8 +417,8 @@ def random_walk(bee_array, n, step_count, unique_encounters):
                 if bee.positiony[step_i] < 0:
                     bee.positiony[step_i] += n
 
-                ALL_PATHS[bee.number][step_i] = (bee.positionx[step_i], bee.positiony[step_i])
-                populate_cell(bee.number, step_i, cell_length, cells, bee_array)
+                all_paths[bee.number][step_i] = (bee.positionx[step_i], bee.positiony[step_i])
+                populate_cell(all_paths, bee.number, step_i, cell_length, cells, bee_array)
                 bee.placed = False
             else:
                 # print "Bee {} is a donor or a receiver at timestep {}".format(bee.number, step_i)
@@ -432,7 +436,7 @@ def random_walk(bee_array, n, step_count, unique_encounters):
         for cell_num in range(0, NUM_CELLS):
             occupant_master_list.extend(cells[cell_num]['occupants'])
         assert len(occupant_master_list) == COUNTS
-        num_encounters += engage(g, step_i, n, bee_array, cells, unique_encounters)
+        num_encounters += engage(all_paths, g, step_i, n, bee_array, cells, thread_name, unique_encounters)
         for cell_num in range(0, NUM_CELLS):
             cells[cell_num]['occupants'] = []
         # fed_bees = [bee for bee in bee_array if bee.food_level > FOOD_THRESHOLD]
@@ -444,9 +448,11 @@ def random_walk(bee_array, n, step_count, unique_encounters):
     return num_encounters
 
 
-def run_everything():
+def run_everything(thread_name):
     # thread by trial!
     for thetastar in THETASTARS:
+        all_paths = np.zeros((COUNTS, STEPS), dtype=(float, 2))
+
         unique_encounters = []
         bee_array = []
         thetastar_range = thetastar[THETASTARRANGE - 1] - thetastar[0]
@@ -467,7 +473,7 @@ def run_everything():
             bee_array.append(Bee(j, thetastar, x.flatten(), y.flatten(), side_length, STEPS, 1,
                                  initially_fed))
 
-        num_encounters = random_walk(bee_array, side_length, STEPS, unique_encounters)
+        num_encounters = random_walk(all_paths, bee_array, side_length, STEPS, thread_name, unique_encounters)
         steps_since_encounter = 0
         steps_since_unique_encounter = 0
         for bee in bee_array:
@@ -518,13 +524,6 @@ def run_everything():
         print "Num encounters: {}".format(num_encounters)
 
 
-    for key in steps_to_encounter.keys():
-        steps_to_encounter[key][0] = steps_to_encounter[key][0] / NUM_TRIALS
-        steps_to_encounter[key][1] = steps_to_encounter[key][1] / NUM_TRIALS
-
-    write_data(steps_to_encounter, side_length)
-
-
 #
 # for ts in food_distribution_vs_time.keys():
 #     for step in food_distribution_vs_time[ts].keys():
@@ -544,6 +543,10 @@ def main():
         threads.append(thread)
     for th in threads:
         th.start()
+    for th in threads:
+        th.join()
+    setup_results()
+    write_data()
 
 
 if __name__ == "__main__":

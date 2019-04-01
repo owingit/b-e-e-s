@@ -4,8 +4,9 @@ import collections
 import numpy as np
 import math
 
-THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), 20) for i in (1, 1.25, 1.5, 1.75, 2, 3, 4, 5, 6, 8, 12)]
 FOOD_THRESHOLD = 5
+THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), 50) for i in
+              (1, 1.5, 2, 3, 4, 6, 8, 12)]
 
 
 def read_and_plot_data():
@@ -79,10 +80,10 @@ def plot_encounters(encounters_data, unique_encounters_data, counts, side_length
 
 
 def plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, counts, side_length, steps, num_trials):
-    stepcounts = [int(steps / 10), int(steps / 8), int(steps / 5), int(steps / 3), int(steps / 2), steps-1]
-    for sc in stepcounts:
-        unique_encounters_up_to_stepcount_data[sc] = {float(key): val for key, val in unique_encounters_up_to_stepcount_data[sc].items()}
-        plt.plot(sorted(unique_encounters_up_to_stepcount_data[sc].keys()), unique_encounters_up_to_stepcount_data[sc].values(), label='Step count: {}'.format(sc))
+    for ts in THETASTARS:
+        thetastar = ts[-1] - ts[0]
+        unique_encounters_up_to_stepcount_data[thetastar] = {float(key): val for key, val in unique_encounters_up_to_stepcount_data[thetastar].items()}
+        plt.plot(sorted(unique_encounters_up_to_stepcount_data[thetastar].keys()), unique_encounters_up_to_stepcount_data[thetastar].values(), label='Thetastar: {}'.format(thetastar))
 
     plt.xlabel('Theta*: width of the range of possible angles')
     plt.ylabel('% Unique encounters')
