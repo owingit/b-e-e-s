@@ -81,21 +81,10 @@ def plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, coun
         thetastar = ts[-1] - ts[0]
         unique_encounters_up_to_stepcount_data[thetastar] = {int(key): val for key, val in unique_encounters_up_to_stepcount_data[thetastar].items()}
         l = unique_encounters_up_to_stepcount_data[thetastar].values()
-        print l
-        percents = [x[0] * 100 for x in l]
-        plt.plot(sorted(unique_encounters_up_to_stepcount_data[thetastar].keys()), percents, zorder=10,
+        plt.plot(sorted(unique_encounters_up_to_stepcount_data[thetastar].keys()), l, zorder=10,
                  label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
-    plt.ylabel('% Unique encounters')
-    plt.twinx()
-    for ts in THETASTARS:
-        thetastar = ts[-1] - ts[0]
-        l = unique_encounters_up_to_stepcount_data[thetastar].values()
-        totals = [x[1] for x in l]
-        plt.scatter(sorted(unique_encounters_up_to_stepcount_data[thetastar].keys()), totals, alpha=0.5,
-                    markersize=2, zorder=2, label='Thetastar: {}'.format(thetastar))
-    plt.ylabel('Total encounters')
-    plt.legend(loc=9)
+    plt.ylabel('Unique encounters')
     plt.title('Unique encounters vs. theta star for {} agents over time for {} steps in a {}x{} arena (n={})'.format(counts, steps, side_length, side_length, num_trials))
     plt.show()
 
