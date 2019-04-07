@@ -14,31 +14,49 @@ import math
 
 import json
 
-# initialize some data structures
+
+###########################################################
+#           CONSTANTS AND GLOBAL DATA STRUCTURES          #
+###########################################################
+
+
 GS = []
 unique_encounters_up_to_stepcount = collections.OrderedDict()
 total_encounters_up_to_stepcount = collections.OrderedDict()
 gs_up_to_stepcount = collections.OrderedDict()
 steps_to_encounter = collections.OrderedDict()
 food_distribution_vs_time = collections.OrderedDict()
+networks_per_thread = collections.OrderedDict()
 
 # constants
 COUNTS = int(input("How many agents? (Enter a perfect square, please :P) "))
 STEPS = int(input("How many steps?"))
-NS = [25, 50, 75, 100, 150, 200, 250, 500]
-THETASTARRANGE = 100
-THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), THETASTARRANGE) for i in
-              (1, 1.5, 2, 3, 4, 6, 8, 12)]
-INITIAL_DIRECTION = np.linspace(-math.pi, math.pi, THETASTARRANGE)
-NUM_TRIALS = 20  # 50
 step_counts = [s for s in range(0, STEPS)]
+side_length = int(input("How long is each side of the arena?"))
+
+NS = [25, 50, 75, 100, 150, 200, 250, 500]
+NUM_TRIALS = 4 # 50
 vel = 1.0  # step size, or velocity
 PCT_INITIALLY_CARRYING_FOOD = 10
 FOOD_TRANSFER_RATE = 1   # units / timestep
 FOOD_THRESHOLD = 10
-NUM_CELLS = 49
+VARIANCE_THRESHOLD = 2.0
+NUM_CELLS = 64
 NUM_CELLS_PER_ROW = math.sqrt(NUM_CELLS)
-side_length = int(input("How long is each side of the arena?"))
+
+THETASTARRANGE = 100
+THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), THETASTARRANGE) for i in
+              (1, 1.5, 2, 3, 4, 6, 8, 12)]
+INITIAL_DIRECTION = np.linspace(-math.pi, math.pi, THETASTARRANGE)
+
+lock = threading.RLock()
+
+
+###########################################################
+#                       NOTES                             #
+###########################################################
+
+
 # stopping conditions:
 # a) global variance in food level should be less than some epsilon
 # b) individual variance in food level should be less than some epsilon
@@ -51,7 +69,10 @@ side_length = int(input("How long is each side of the arena?"))
 # donor vs. expecter, where donors are stationary and expecters are mobile
 # change the boundary conditions to allow for non-periodic boundary conditions
 
-lock = threading.RLock()
+
+###########################################################
+#                   CLASS DEFINITIONS                     #
+###########################################################
 
 
 class BeeThread(threading.Thread):
@@ -97,7 +118,6 @@ class Bee:
             self.food_level = 100
         else:
             self.food_level = 0
-        # self.food_transfer_rate = 10  # units / timestep
         self.donor = None
         self.receiver = None
         self.steps_to_wait = 0
@@ -105,6 +125,61 @@ class Bee:
         self.step_count_of_last_encounter = [0]
         self.step_count_of_last_unique_encounter = [0]
         self.counts_for_encounter = True
+
+
+###########################################################
+#                   HELPER FUNCTIONS                      #
+###########################################################
+
+
+def find_adjacent(x, y, m, n):
+    """
+    Given an MxN matrix stored in a 1-d sequence,
+    return the index of (possibly wrapped) X,Y
+    """
+    return (y % n) * m + (x % m)
+
+
+def check_x_boundary(coords, n):
+    a = False
+    b = False
+    if coords[0] > n - 1:
+        a = True
+    if coords[0] < 1:
+        b = True
+    return a, b
+
+
+def check_y_boundary(coords, n):
+    a = False
+    b = False
+    if coords[1] > n - 1:
+        a = True
+    if coords[1] < 1:
+        b = True
+    return a, b
+
+
+def get_adjacent_cells(x, y):
+    adjacentList = []
+    for dx in (-1, 0, +1):
+        for dy in (-1, 0, +1):
+            if dx != 0 or dy != 0:
+                adjacentList.append(find_adjacent(x + dx, y + dy, 5, 5))
+    return adjacentList
+
+
+def initialize_result_dictionaries():
+    for ts in THETASTARS:
+        thetastar = ts[-1] - ts[0]
+        unique_encounters_up_to_stepcount[thetastar] = collections.OrderedDict()
+        total_encounters_up_to_stepcount[thetastar] = collections.OrderedDict()
+        gs_up_to_stepcount[thetastar] = collections.OrderedDict()
+
+
+############################################################
+#                   DATA PROCESSING                        #
+############################################################
 
 
 def write_data(is_tracking_food):
@@ -121,6 +196,8 @@ def write_data(is_tracking_food):
     if is_tracking_food:
         with open('fed_bee_distribution_{}x{}_{}agents_TO_PLOT.json'.format(side_length, side_length, COUNTS), 'w') as fp:
             json.dump(food_distribution_vs_time.items(), fp, sort_keys=True)
+    # with open('networks_at_convergence_time'+json_msg, 'w') as fp7:
+    #     data = nx.readwrite.json_graph.adjacency_data()
 
 
 def setup_results(is_tracking_food):
@@ -129,22 +206,10 @@ def setup_results(is_tracking_food):
         for ccsize in gs_up_to_stepcount[ts].keys():
             gs_up_to_stepcount[ts][ccsize] = gs_up_to_stepcount[ts][ccsize] / (NUM_TRIALS)
         for sc in step_counts[1:]:
-            in_total = False
-            in_unique = False
             if sc in total_encounters_up_to_stepcount[ts]:
                 total_encounters_up_to_stepcount[ts][sc] = total_encounters_up_to_stepcount[ts][sc] // NUM_TRIALS
-                in_total = True
             if sc in unique_encounters_up_to_stepcount[ts]:
                 unique_encounters_up_to_stepcount[ts][sc] = unique_encounters_up_to_stepcount[ts][sc] // NUM_TRIALS
-                in_unique = True
-            if in_total and in_unique:
-                if total_encounters_up_to_stepcount[ts][sc] > 0:
-                    # (%, total)
-                    unique_encounters_up_to_stepcount[ts][sc] = ((unique_encounters_up_to_stepcount[ts][sc] / total_encounters_up_to_stepcount[ts][sc]), unique_encounters_up_to_stepcount[ts][sc])
-                else:
-                    unique_encounters_up_to_stepcount[ts][sc] = (0, 0)
-            else:
-                unique_encounters_up_to_stepcount[ts][sc] = (0, 0)
 
     for key in steps_to_encounter.keys():
         steps_to_encounter[key][0] = steps_to_encounter[key][0] / NUM_TRIALS
@@ -156,12 +221,25 @@ def setup_results(is_tracking_food):
                 food_distribution_vs_time[ths][step] = food_distribution_vs_time[ths][step] / NUM_TRIALS
 
 
-def initialize_result_dictionaries():
-    for ts in THETASTARS:
-        thetastar = ts[-1] - ts[0]
-        unique_encounters_up_to_stepcount[thetastar] = collections.OrderedDict()
-        total_encounters_up_to_stepcount[thetastar] = collections.OrderedDict()
-        gs_up_to_stepcount[thetastar] = collections.OrderedDict()
+###########################################################
+#                   ENCOUNTER LOGIC                       #
+###########################################################
+
+
+def feed(bee_array):
+    engaged_bees = [bee for bee in bee_array if bee.donor or bee.receiver is not None]
+    seen_donors = []
+    for bee in engaged_bees:
+        donor = bee.donor
+        if donor in seen_donors:
+            continue
+        receiver = bee.receiver
+        if bee_array[donor].food_level <= bee_array[receiver].food_level:
+            continue
+        else:
+            bee_array[donor].food_level -= FOOD_TRANSFER_RATE
+            bee_array[receiver].food_level += FOOD_TRANSFER_RATE
+            seen_donors.append(donor)
 
 
 def what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_array, a, b,
@@ -219,82 +297,8 @@ def what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_arra
                 bee_array[b].counts_for_encounter = True
 
 
-def find_adjacent(x, y, m, n):
-    """
-    Given an MxN matrix stored in a 1-d sequence,
-    return the index of (possibly wrapped) X,Y
-    """
-    return (y % n) * m + (x % m)
-
-
-def check_x_boundary(coords, n):
-    a = False
-    b = False
-    if coords[0] > n - 1:
-        a = True
-    if coords[0] < 1:
-        b = True
-    return a, b
-
-
-def check_y_boundary(coords, n):
-    a = False
-    b = False
-    if coords[1] > n - 1:
-        a = True
-    if coords[1] < 1:
-        b = True
-    return a, b
-
-
-def get_adjacent_cells(x, y):
-    adjacentList = []
-    for dx in (-1, 0, +1):
-        for dy in (-1, 0, +1):
-            if dx != 0 or dy != 0:
-                adjacentList.append(find_adjacent(x + dx, y + dy, 5, 5))
-    return adjacentList
-
-
-def plot_food_distribution_vs_time(distribution_dict, side_length):
-    for ts in THETASTARS:
-        thetastar = ts[-1] - ts[0]
-        distribution_dict[thetastar] = {int(key): val for key, val in
-                                        distribution_dict[thetastar].items()}
-        plt.plot(sorted(distribution_dict[thetastar].keys()), distribution_dict[thetastar].values(),
-                 label='Thetastar: {}'.format(thetastar))
-    plt.xlabel('Step')
-    plt.ylabel('Number of fed individuals (threshold = {} units of food'.format(FOOD_THRESHOLD))
-    plt.legend()
-    plt.title('Number of fed individuals vs. time for {} agents in a {}x{} arena (n={})'.format(COUNTS,
-                                                                                                side_length,
-                                                                                                side_length,
-                                                                                                NUM_TRIALS))
-    plt.show()
-
-
-def feed(bee_array):
-    engaged_bees = [bee for bee in bee_array if bee.donor or bee.receiver is not None]
-    seen_donors = []
-    for bee in engaged_bees:
-        donor = bee.donor
-        if donor in seen_donors:
-            continue
-        receiver = bee.receiver
-        if bee_array[donor].food_level <= bee_array[receiver].food_level:
-            continue
-        else:
-            print "Bee {} food level {} feeding bee {} food level {}".format(donor,
-                                                                             bee_array[donor].food_level,
-                                                                             receiver, bee_array[
-                                                                                 receiver].food_level)
-            bee_array[donor].food_level -= FOOD_TRANSFER_RATE
-            bee_array[receiver].food_level += FOOD_TRANSFER_RATE
-            seen_donors.append(donor)
-
-
 def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, thread_name, running_total, unique_encounters):
-    print "Current step: {} in thread: {}\n".format(current_step, thread_name)
+    # print "Current step: {} in thread: {}\n".format(current_step, thread_name)
     encounters_at_this_step = []
     exclude_cells = []
     for cell in cells:
@@ -355,8 +359,8 @@ def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, th
 
         exclude_cells.append(cell)
 
-    print "Encounters at step {} in thread {}: {}\n".format(current_step, thread_name,
-                                                            encounters_at_this_step)
+    # print "Encounters at step {} in thread {}: {}\n".format(current_step, thread_name,
+    #                                                         encounters_at_this_step)
     lock.acquire()
     if len(g.edges()) > 0:
         thetastar_to_save = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
@@ -385,6 +389,11 @@ def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, th
                 total_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(encounters_at_this_step) + running_total
     lock.release()
     return len(encounters_at_this_step)
+
+
+###########################################################
+#                   RANDOM WALK STUFF                     #
+###########################################################
 
 
 def populate_cell(all_paths, bee_number, step_i, cell_length, cells, bee_array):
@@ -419,7 +428,7 @@ def populate_cell(all_paths, bee_number, step_i, cell_length, cells, bee_array):
 
 
 def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name, unique_encounters):
-
+    converged = False
     # set up data structures, decide whether to track food or not
     g = nx.Graph()
     num_encounters = 0
@@ -499,6 +508,9 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
         # if feeding was happening, set up the food distribution tracking
         if tracking_food:
             ths = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
+            food_levels = [bee.food_level for bee in bee_array]
+            variance = np.var(food_levels)
+            # print "Individual variance in food level at stepcount {}: {}".format(step_i, variance)
             fed_bees = [bee for bee in bee_array if bee.food_level > FOOD_THRESHOLD]
             num_of_fed_bees = len(fed_bees)
             lock.acquire()
@@ -506,14 +518,32 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                 food_distribution_vs_time[ths][step_i] += num_of_fed_bees
             else:
                 food_distribution_vs_time[ths][step_i] = num_of_fed_bees
+            if num_of_fed_bees == COUNTS and not converged:
+                print "Thetastar {} converged because all bees are fed at step {}".format(ths, step_i)
+                networks_per_thread[thread_name][ths] = g
+                converged = True
+            if variance < VARIANCE_THRESHOLD and not converged:
+                print "Thetastar {} converged due to variance at step {}!".format(ths, step_i)
+                networks_per_thread[thread_name][ths] = g
+                converged = True
             lock.release()
-            if num_of_fed_bees == COUNTS:
-                print "Thetastar {} converged!".format(ths)
-                return num_encounters, step_i
-    return num_encounters, step_count
+        if converged:
+            return num_encounters
+    lock.acquire()
+    networks_per_thread[thread_name][bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]] = g
+    lock.release()
+    return num_encounters
+
+
+###########################################################
+#                       DRIVER                            #
+###########################################################
 
 
 def run_everything(is_tracking_food, thread_name):
+    lock.acquire()
+    networks_per_thread[thread_name] = {}
+    lock.release()
     # set up food distribution tracking if specified
     if is_tracking_food:
         lock.acquire()
@@ -548,9 +578,8 @@ def run_everything(is_tracking_food, thread_name):
             bee_array.append(Bee(j, thetastar, x.flatten(), y.flatten(), side_length, STEPS, 1,
                                  initially_fed))
 
-        num_encounters, steps_until_convergence = random_walk(all_paths, bee_array, side_length, STEPS,
-                                                              is_tracking_food, thread_name,
-                                                              unique_encounters)
+        num_encounters = random_walk(all_paths, bee_array, side_length, STEPS, is_tracking_food,
+                                     thread_name, unique_encounters)
         steps_since_encounter = 0
         steps_since_unique_encounter = 0
         for bee in bee_array:
@@ -604,13 +633,19 @@ def main():
     for th in threads:
         th.join()
 
-    print "UEutS: {}".format(unique_encounters_up_to_stepcount)
-    print "TEutS: {}".format(total_encounters_up_to_stepcount)
-    print "GupS: {}".format(gs_up_to_stepcount)
-    print "StE: {}".format(steps_to_encounter)
-    print "FDvT: {}".format(food_distribution_vs_time)
     setup_results(activate_food)
     write_data(activate_food)
+    fignum = 1
+    for thread_name in networks_per_thread.keys():
+        for thetastar in networks_per_thread[thread_name]:
+            graph = networks_per_thread[thread_name][thetastar]
+            edges, weights = zip(*nx.get_edge_attributes(graph, 'weight').items())
+            plt.figure(fignum)
+            fignum += 1
+            plt.title("Network of connectivity at convergence. Thetastar = {}, {} agents in a {}x{} arena".format(thetastar, COUNTS, side_length, side_length))
+            nx.draw_networkx(graph, node_size=100, edge_color=weights, edge_cmap=plt.cm.bwr, width=weights)
+            nx.draw(networks_per_thread[thread_name][thetastar])
+    plt.show()
 
 
 if __name__ == "__main__":
