@@ -4,13 +4,24 @@ import collections
 import numpy as np
 import math
 
-FOOD_THRESHOLD = 5
+FOOD_THRESHOLD = 10
 THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), 50) for i in
               (1, 1.5, 2, 3, 4, 6, 8, 12)]
 counts = input("how many agents?")
 side_length = input("how long were the sides?")
 steps = input("how many steps?")
 num_trials = input("how many trials?")
+
+
+def get_convergence_time(thetastar):
+    with open('Average_convergence_times_for_each_thetastar_{}x{}_{}agents.txt'.format(
+              side_length, side_length, counts), 'r') as fp:
+        convergence_times = collections.OrderedDict(json.load(fp))
+    return convergence_times[thetastar]
+
+
+def shrink_to_convergence(data, convergent_step):
+    return {key: data[key] for key in list(data.keys())[:convergent_step]}
 
 
 def read_and_plot_data():
@@ -33,7 +44,7 @@ def read_and_plot_data():
 
     plot_avg_steps_between(steps_between_data, counts, side_length, steps, num_trials)
     #  plot_encounters(encounters_data, unique_encounters_data, counts, side_length, steps, num_trials)
-    #  plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, counts, side_length, steps, num_trials)
+    plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, counts, side_length, steps, num_trials)
     plot_gs_up_to_stepcount_data(gs_up_to_stepcount_data, counts, side_length, num_trials)
 
 
@@ -41,11 +52,12 @@ def read_and_plot_food_data():
 
     with open('fed_bee_distribution_{}x{}_{}agents_TO_PLOT.json'.format(side_length, side_length, counts), 'r') as fp:
         food_data = collections.OrderedDict(json.load(fp))
-    print food_data
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         food_data[thetastar] = {int(key): val for key, val in food_data[thetastar].items()}
-        plt.loglog(sorted(food_data[thetastar].keys()), food_data[thetastar].values(), label='Thetastar: {}'.format(thetastar))
+        convergence_time = get_convergence_time(thetastar)
+        first_x_pairs = shrink_to_convergence(food_data[thetastar], convergence_time)
+        plt.loglog(sorted(first_x_pairs.keys()), first_x_pairs.values(), label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Number of fed individuals above threshold = {} units of food'.format(FOOD_THRESHOLD))
     plt.legend()
@@ -80,12 +92,14 @@ def plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, coun
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         unique_encounters_up_to_stepcount_data[thetastar] = {int(key): val for key, val in unique_encounters_up_to_stepcount_data[thetastar].items()}
-        l = unique_encounters_up_to_stepcount_data[thetastar].values()
-        plt.plot(sorted(unique_encounters_up_to_stepcount_data[thetastar].keys()), l, zorder=10,
+        convergence_time = get_convergence_time(thetastar)
+        first_x_pairs = shrink_to_convergence(unique_encounters_up_to_stepcount_data[thetastar], convergence_time)
+        plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
                  label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Unique encounters')
-    plt.title('Unique encounters vs. theta star for {} agents over time for {} steps in a {}x{} arena (n={})'.format(counts, steps, side_length, side_length, num_trials))
+    plt.title('Total unique encounters vs. theta star for {} agents over time for {} steps in a {}x{} arena (n={})'.format(counts, steps, side_length, side_length, num_trials))
+    plt.legend()
     plt.show()
 
 
@@ -93,8 +107,10 @@ def plot_gs_up_to_stepcount_data(gs_up_to_stepcount_data, counts, side_length, n
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         gs_up_to_stepcount_data[thetastar] = {int(key): val for key, val in gs_up_to_stepcount_data[thetastar].items()}
-        plt.plot(sorted(gs_up_to_stepcount_data[thetastar].keys()),
-                 gs_up_to_stepcount_data[thetastar].values(), label='Thetastar: {}'.format(thetastar))
+        convergence_time = get_convergence_time(thetastar)
+        first_x_pairs = shrink_to_convergence(gs_up_to_stepcount_data[thetastar], convergence_time)
+        plt.plot(sorted(first_x_pairs.keys()),
+                 first_x_pairs.values(), label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Size of the largest connected component')
     plt.legend()
