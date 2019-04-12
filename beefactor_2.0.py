@@ -34,7 +34,7 @@ unique_encounters_per_thread = collections.OrderedDict()
 COUNTS = int(input("How many agents? (Enter a perfect square, please :P) "))
 STEPS = int(input("How many steps?"))
 step_counts = [s for s in range(0, STEPS)]
-network_steps = [0, 1, 3, 5, 10, 15, 20]
+network_steps = [0, 1, 3, 5, 10, 15, 20, 50, 100, 200, 250, 500, 1000]
 side_length = int(input("How long is each side of the arena?"))
 
 NS = [25, 50, 75, 100, 150, 200, 250, 500]
@@ -44,7 +44,7 @@ PCT_INITIALLY_CARRYING_FOOD = 10
 FOOD_TRANSFER_RATE = 1   # units / timestep
 FOOD_THRESHOLD = 10
 VARIANCE_THRESHOLD = 0.8
-NUM_CELLS = 144
+NUM_CELLS = 10000
 NUM_CELLS_PER_ROW = math.sqrt(NUM_CELLS)
 
 THETASTARRANGE = 100
@@ -135,6 +135,24 @@ class Bee:
 ###########################################################
 
 
+def mkdir_p(mypath):
+    """Creates a directory. equivalent to using mkdir -p on the command line
+
+    :param mypath:
+    """
+
+    from errno import EEXIST
+    from os import makedirs,path
+
+    try:
+        makedirs(mypath)
+    except OSError as exc: # Python >2.5
+        if exc.errno == EEXIST and path.isdir(mypath):
+            pass
+        else:
+            raise
+
+
 def find_adjacent(x, y, m, n):
     """
     Given an MxN matrix stored in a 1-d sequence,
@@ -207,14 +225,24 @@ def write_data(is_tracking_food, avg_convergence_times):
 
 def setup_results(is_tracking_food):
     for thetastar in THETASTARS:
+        gs_converged_at_this_thetastar = 0
+        totals_converged_at_this_thetastar = 0
+        uniques_converged_at_this_thetastar = 0
         ts = thetastar[-1] - thetastar[0]
         for step in gs_up_to_stepcount[ts].keys():
-            gs_up_to_stepcount[ts][step] = gs_up_to_stepcount[ts][step] / (NUM_TRIALS)
+            gs_up_to_stepcount[ts][step] = gs_up_to_stepcount[ts][step] / (NUM_TRIALS - gs_converged_at_this_thetastar)
+            for key in convergence_times.keys():
+                if step == convergence_times[key][ts]:
+                    gs_converged_at_this_thetastar += 1
         for sc in total_encounters_up_to_stepcount[ts].keys():
             if sc in total_encounters_up_to_stepcount[ts]:
-                total_encounters_up_to_stepcount[ts][sc] = total_encounters_up_to_stepcount[ts][sc] // NUM_TRIALS
+                total_encounters_up_to_stepcount[ts][sc] = total_encounters_up_to_stepcount[ts][sc] // (NUM_TRIALS - totals_converged_at_this_thetastar)
             if sc in unique_encounters_up_to_stepcount[ts]:
-                unique_encounters_up_to_stepcount[ts][sc] = unique_encounters_up_to_stepcount[ts][sc] // NUM_TRIALS
+                unique_encounters_up_to_stepcount[ts][sc] = unique_encounters_up_to_stepcount[ts][sc] // (NUM_TRIALS - uniques_converged_at_this_thetastar)
+            for key in convergence_times.keys():
+                if sc == convergence_times[key][ts]:
+                    totals_converged_at_this_thetastar += 1
+                    uniques_converged_at_this_thetastar += 1
 
     for key in steps_to_encounter.keys():
         steps_to_encounter[key][0] = steps_to_encounter[key][0] / NUM_TRIALS
@@ -222,16 +250,23 @@ def setup_results(is_tracking_food):
 
     if is_tracking_food:
         for ths in food_distribution_vs_time.keys():
+            food_converged_at_this_ts = 0
             for step in food_distribution_vs_time[ths].keys():
-                food_distribution_vs_time[ths][step] = food_distribution_vs_time[ths][step] / NUM_TRIALS
+                food_distribution_vs_time[ths][step] = food_distribution_vs_time[ths][step] / (NUM_TRIALS - food_converged_at_this_ts)
+                for key in convergence_times.keys():
+                    if step == convergence_times[key][ths]:
+                        food_converged_at_this_ts += 1
 
     avgs_at_thetastar = {}
+    conv_at_thread = {}
     for thread_name in convergence_times.keys():
         for ths in convergence_times[thread_name].keys():
             if ths in avgs_at_thetastar:
                 avgs_at_thetastar[ths] += convergence_times[thread_name][ths]
             else:
                 avgs_at_thetastar[ths] = convergence_times[thread_name][ths]
+            conv_at_thread[ths] = {thread_name: convergence_times[thread_name][ths]}
+
     for thetastar in avgs_at_thetastar.keys():
         avgs_at_thetastar[thetastar] = avgs_at_thetastar[thetastar] // NUM_TRIALS
     return avgs_at_thetastar
@@ -448,6 +483,9 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
     cells = dict()
     cell_length = n / NUM_CELLS_PER_ROW
     present_ths = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
+    nx_output_dir = "networks/networks_thetastar_{}_{}x{}_{}steps".format(present_ths, side_length,
+                                                                       side_length, COUNTS)
+    mkdir_p(nx_output_dir)
     if thread_name == 'Thread-0':
         first_thread = True
     for cell_num in range(0, NUM_CELLS):
@@ -467,15 +505,16 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
             fignum += 1
             plt.title("Network of connectivity at step {} with thetastar = {}, {} agents in a {}x{} arena".format(
                             0, present_ths, COUNTS, side_length, side_length))
-            nx.draw_networkx(g, node_size=100, edge_color=weights, edge_cmap=plt.cm.bwr, width=weights)
+            nx.draw_spring(g, node_size=50, edge_color=weights, edge_cmap=plt.cm.bwr, width=weights, with_labels=True)
         except ValueError:
             plt.figure(fignum)
             fignum += 1
             plt.title(
                 "Network of connectivity at step {} with thetastar = {}, {} agents in a {}x{} arena".format(
                     0, present_ths, COUNTS, side_length, side_length))
+            nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, 0))
             nx.draw(g)
-        plt.savefig("network_at_step_{}.png".format(0))
+        plt.savefig("{}/_at_step_{}.png".format(nx_output_dir, 0))
         plt.close()
     # for every step:
     #  for every bee:
@@ -533,8 +572,9 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                 plt.title(
                     "Network of connectivity at step {} with thetastar = {}, {} agents in a {}x{} arena".format(
                         step_i, present_ths, COUNTS, side_length, side_length))
-                nx.draw_networkx(g, node_size=100, edge_color=weights, edge_cmap=plt.cm.bwr,
-                                 width=weights)
+                nx.draw_spring(g, node_size=50, edge_color=weights, edge_cmap=plt.cm.bwr,
+                               width=weights, with_labels=True)
+                nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, step_i))
             except ValueError:
                 plt.figure(fignum)
                 fignum += 1
@@ -542,7 +582,8 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                     "Network of connectivity at step {} with thetastar = {}, {} agents in a {}x{} arena".format(
                         step_i, present_ths, COUNTS, side_length, side_length))
                 nx.draw(g)
-            plt.savefig("network_at_step_{}.png".format(step_i))
+                nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, step_i))
+            plt.savefig("{}/_at_step_{}.png".format(nx_output_dir, step_i))
             plt.close()
 
         # check that all bees are accounted for
@@ -575,13 +616,15 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
             if num_of_fed_bees == COUNTS and not converged:
                 print "Thetastar {} converged because all bees are fed at step {}".format(ths, step_i)
                 convergence_times[thread_name][ths] = step_i
-                networks_per_thread[thread_name][ths] = g
+                networks_per_thread[thread_name][ths] = g\
+                # write me!
                 unique_encounters_per_thread[thread_name][ths] = len(unique_encounters)
                 converged = True
             if variance < VARIANCE_THRESHOLD and not converged:
                 print "Thetastar {} converged due to variance at step {}!".format(ths, step_i)
                 convergence_times[thread_name][ths] = step_i
                 networks_per_thread[thread_name][ths] = g
+                # write me!
                 unique_encounters_per_thread[thread_name][ths] = len(unique_encounters)
                 converged = True
             lock.release()
@@ -659,8 +702,7 @@ def run_everything(is_tracking_food, thread_name):
 
         avg_steps_between_unique_encounters = 0
         if len(unique_encounters) > 0:
-            avg_steps_between_unique_encounters += steps_since_unique_encounter / len(
-                unique_encounters)
+            avg_steps_between_unique_encounters += steps_since_unique_encounter / len(unique_encounters)
             print "Avg steps between unique encounters for thread {}: {}".format(thread_name,
                                                                                  avg_steps_between_unique_encounters)
         else:
