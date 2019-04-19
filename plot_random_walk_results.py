@@ -12,7 +12,7 @@ counts = input("how many agents?")
 side_length = input("how long were the sides?")
 steps = input("how many steps?")
 num_trials = input("how many trials?")
-food = input("food? y/n?")
+food = raw_input("food? y/n?")
 
 
 def get_convergence_time(thetastar):
@@ -30,14 +30,14 @@ def read_and_plot_data():
     with open('steps_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
             counts, side_length, side_length, steps), 'r') as fp:
         steps_between_data = collections.OrderedDict(json.load(fp))
-#    with open('encounters_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
-#          counts, side_length, side_length, steps), 'r') as fp2:
-#        encounters_data = collections.OrderedDict(json.load(fp2))
+    with open('total_encounters_up_to_stepcount_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
+              counts, side_length, side_length, steps), 'r') as fp2:
+        encounters_data = collections.OrderedDict(json.load(fp2))
 #    with open('unique_encounters_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
 #          counts, side_length, side_length, steps), 'r') as fp3:
 #        unique_encounters_data = collections.OrderedDict(json.load(fp3))
     with open('unique_steps_over_time_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
-            counts, side_length, side_length, steps), 'r') as fp2:
+              counts, side_length, side_length, steps), 'r') as fp2:
         unique_steps_between_over_time_data = collections.OrderedDict(json.load(fp2))
     with open('steps_over_time_between_{}agents_{}x{}_{}steps_TO_PLOT.json'.format(
             counts, side_length, side_length, steps), 'r') as fp3:
@@ -51,7 +51,7 @@ def read_and_plot_data():
 
     plot_avg_steps_between(steps_between_data, counts, side_length, steps, num_trials)
     #  plot_encounters(encounters_data, unique_encounters_data, counts, side_length, steps, num_trials)
-    plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, counts, side_length, steps, num_trials)
+    plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, encounters_data, counts, side_length, steps, num_trials)
     plot_gs_up_to_stepcount_data(gs_up_to_stepcount_data, counts, side_length, num_trials)
     plot_steps_between_over_time(steps_between_over_time_data, counts, side_length, steps, num_trials)
     plot_unique_steps_between_over_time(unique_steps_between_over_time_data, counts, side_length, steps, num_trials)
@@ -97,13 +97,18 @@ def plot_encounters(encounters_data, unique_encounters_data, counts, side_length
     plt.show()
 
 
-def plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, counts, side_length, steps, num_trials):
+def plot_encounters_up_to_stepcount(unique_encounters_up_to_stepcount_data, total_data, counts, side_length, steps, num_trials):
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         unique_encounters_up_to_stepcount_data[thetastar] = {int(key): val for key, val in unique_encounters_up_to_stepcount_data[thetastar].items()}
-        convergence_time = get_convergence_time(thetastar)
-        first_x_pairs = shrink_to_convergence(unique_encounters_up_to_stepcount_data[thetastar], convergence_time)
-        plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
+        total_data[thetastar] = {int(key): val for key, val in total_data[thetastar].items()}
+        # convergence_time = get_convergence_time(thetastar)
+        # first_x_pairs = shrink_to_convergence(unique_encounters_up_to_stepcount_data[thetastar], convergence_time)
+        # plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
+        #          label='Thetastar: {}'.format(thetastar))
+        plt.scatter(sorted(total_data[thetastar].keys()), total_data[thetastar].values(), zorder=0,
+                 label='Thetastar: {}'.format(thetastar), marker='x')
+        plt.plot(sorted(unique_encounters_up_to_stepcount_data[thetastar].keys()), unique_encounters_up_to_stepcount_data[thetastar].values(), zorder=10,
                  label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Unique encounters')
@@ -117,10 +122,12 @@ def plot_steps_between_over_time(total, counts, side_length, steps, num_trials):
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         total[thetastar] = {int(key): val for key, val in total[thetastar].items()}
-        convergence_time = get_convergence_time(thetastar)
-        first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
-        plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
-                 label='Thetastar: {}'.format(thetastar))
+        # convergence_time = get_convergence_time(thetastar)
+        # first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
+        # plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
+        #          label='Thetastar: {}'.format(thetastar))
+        plt.loglog(sorted(total[thetastar].keys()), total[thetastar].values(), zorder=10,
+                   label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Avg steps between encounters')
     plt.title('Steps between encounters over time for each thetastar: {} agents, {} steps in a {}x{} arena (n={})'.format(
@@ -134,10 +141,12 @@ def plot_unique_steps_between_over_time(total, counts, side_length, steps, num_t
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         total[thetastar] = {int(key): val for key, val in total[thetastar].items()}
-        convergence_time = get_convergence_time(thetastar)
-        first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
-        plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
-                 label='Thetastar: {}'.format(thetastar))
+        # convergence_time = get_convergence_time(thetastar)
+        # first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
+        # plt.loglog(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
+        #          label='Thetastar: {}'.format(thetastar))
+        plt.loglog(sorted(total[thetastar].keys()), total[thetastar].values(), zorder=10,
+                   label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Avg steps between unique encounters')
     plt.title('Steps between unique encounters over time for each thetastar: {} agents, {} steps in a {}x{} arena (n={})'.format(
@@ -147,15 +156,16 @@ def plot_unique_steps_between_over_time(total, counts, side_length, steps, num_t
 
 
 def plot_gs_up_to_stepcount_data(gs_up_to_stepcount_data, counts, side_length, num_trials):
-
     # twin axis with average food level
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         gs_up_to_stepcount_data[thetastar] = {int(key): val for key, val in gs_up_to_stepcount_data[thetastar].items()}
-        convergence_time = get_convergence_time(thetastar)
-        first_x_pairs = shrink_to_convergence(gs_up_to_stepcount_data[thetastar], convergence_time)
-        plt.loglog(sorted(first_x_pairs.keys()),
-                   first_x_pairs.values(), label='Thetastar: {}'.format(thetastar))
+        # convergence_time = get_convergence_time(thetastar)
+        # first_x_pairs = shrink_to_convergence(gs_up_to_stepcount_data[thetastar], convergence_time)
+        # plt.plot(sorted(first_x_pairs.keys()),
+        #            first_x_pairs.values(), label='Thetastar: {}'.format(thetastar))
+        plt.plot(sorted(gs_up_to_stepcount_data[thetastar].keys()), gs_up_to_stepcount_data[thetastar].values(),
+                 label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Size of the largest connected component')
     plt.legend()

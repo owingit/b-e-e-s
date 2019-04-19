@@ -19,6 +19,11 @@ import json
 ###########################################################
 
 
+def near(limit):
+    val = int(math.pow(limit, .5))
+    return val*val
+
+
 GS = []
 unique_encounters_up_to_stepcount = collections.OrderedDict()
 total_encounters_up_to_stepcount = collections.OrderedDict()
@@ -35,17 +40,17 @@ unique_encounters_per_thread = collections.OrderedDict()
 COUNTS = int(input("How many agents? (Enter a perfect square, please :P) "))
 STEPS = int(input("How many steps?"))
 step_counts = [s for s in range(0, STEPS)]
-network_steps = [0, 10, 20, 50, 75, 100, 150, 200, 250, 500, 750, 1000, 2000, 3000]
+network_steps = [0, 10, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 3000]
 side_length = int(input("How long is each side of the arena?"))
 
 NS = [25, 50, 75, 100, 150, 200, 250, 500]
-NUM_TRIALS = 16
+NUM_TRIALS = 5
 vel = 1.0  # step size, or velocity
 PCT_INITIALLY_CARRYING_FOOD = 10
 FOOD_TRANSFER_RATE = 1  # units / timestep
 FOOD_THRESHOLD = 10
 VARIANCE_THRESHOLD = 0.8
-NUM_CELLS = 100
+NUM_CELLS = near(side_length)
 NUM_CELLS_PER_ROW = math.sqrt(NUM_CELLS)
 
 THETASTARRANGE = 100
@@ -237,33 +242,33 @@ def write_data(is_tracking_food, avg_convergence_times):
 
 def setup_results(is_tracking_food):
     for thetastar in THETASTARS:
-        gs_converged_at_this_thetastar = 0
-        totals_converged_at_this_thetastar = 0
-        uniques_converged_at_this_thetastar = 0
+        # gs_converged_at_this_thetastar = 0
+        # totals_converged_at_this_thetastar = 0
+        # uniques_converged_at_this_thetastar = 0
         ts = thetastar[-1] - thetastar[0]
         for step in gs_up_to_stepcount[ts].keys():
             gs_up_to_stepcount[ts][step] = gs_up_to_stepcount[ts][step] / (
-                        NUM_TRIALS - gs_converged_at_this_thetastar)
-            for key in convergence_times.keys():
-                if step == convergence_times[key][ts]:
-                    gs_converged_at_this_thetastar += 1
+                        NUM_TRIALS) #- gs_converged_at_this_thetastar)
+            # for key in convergence_times.keys():
+            #     if step == convergence_times[key][ts]:
+            #         gs_converged_at_this_thetastar += 1
         for sc in total_encounters_up_to_stepcount[ts].keys():
             if sc in total_encounters_up_to_stepcount[ts]:
                 total_encounters_up_to_stepcount[ts][sc] = total_encounters_up_to_stepcount[ts][sc] // (
-                            NUM_TRIALS - totals_converged_at_this_thetastar)
+                            NUM_TRIALS) #- totals_converged_at_this_thetastar)
             if sc in unique_encounters_up_to_stepcount[ts]:
                 unique_encounters_up_to_stepcount[ts][sc] = unique_encounters_up_to_stepcount[ts][
                                                                 sc] // (
-                                                                        NUM_TRIALS - uniques_converged_at_this_thetastar)
+                                                                        NUM_TRIALS) # - uniques_converged_at_this_thetastar)
             if sc in steps_to_encounter_over_time[ts]:
-                steps_to_encounter_over_time[ts][sc] = steps_to_encounter_over_time[ts][sc] // (NUM_TRIALS - totals_converged_at_this_thetastar)
+                steps_to_encounter_over_time[ts][sc] = steps_to_encounter_over_time[ts][sc] // (NUM_TRIALS) #- totals_converged_at_this_thetastar)
             if sc in steps_to_unique_encounter_over_time[ts]:
-                steps_to_unique_encounter_over_time[ts][sc] = steps_to_unique_encounter_over_time[ts][sc] // (NUM_TRIALS - uniques_converged_at_this_thetastar)
+                steps_to_unique_encounter_over_time[ts][sc] = steps_to_unique_encounter_over_time[ts][sc] // (NUM_TRIALS) #- uniques_converged_at_this_thetastar)
 
-            for key in convergence_times.keys():
-                if sc == convergence_times[key][ts]:
-                    totals_converged_at_this_thetastar += 1
-                    uniques_converged_at_this_thetastar += 1
+            # for key in convergence_times.keys():
+            #     if sc == convergence_times[key][ts]:
+            #         totals_converged_at_this_thetastar += 1
+            #         uniques_converged_at_this_thetastar += 1
 
     for key in steps_to_encounter.keys():
         steps_to_encounter[key][0] = steps_to_encounter[key][0] / NUM_TRIALS
@@ -502,7 +507,6 @@ def populate_cell(all_paths, bee_number, step_i, cell_length, cells, bee_array):
 
 
 def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name, unique_encounters):
-    fignum = 1
     first_thread = False
     converged = False
     # set up data structures, decide whether to track food or not
@@ -527,25 +531,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
         populate_cell(all_paths, bee.number, 0, cell_length, cells, bee_array)
     if first_thread:
         print "Adding network at step {} with {} edges".format(0, g.number_of_edges())
-        try:
-            edges, weights = zip(*nx.get_edge_attributes(g, 'weight').items())
-            plt.figure(fignum)
-            fignum += 1
-            plt.title(
-                "Network of connectivity at step {} with thetastar = {}, {} agents in a {}x{} arena".format(
-                    0, present_ths, COUNTS, side_length, side_length))
-            nx.draw_spring(g, node_size=50, edge_color=weights, edge_cmap=plt.cm.bwr, width=weights,
-                           with_labels=True)
-        except ValueError:
-            plt.figure(fignum)
-            fignum += 1
-            plt.title(
-                "Network of connectivity at step {} with thetastar = {}, {} agents in a {}x{} arena".format(
-                    0, present_ths, COUNTS, side_length, side_length))
-            nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, 0))
-            nx.draw(g)
-        plt.savefig("{}/_at_step_{}.png".format(nx_output_dir, 0))
-        plt.close()
+        nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, 0))
     # for every step:
     #  for every bee:
     #    if the bee is not a donor or a receiver, it is not engaged in trophallaxis, so it moves
@@ -559,6 +545,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
     #    2. populate cell lists
     #    3. feed
     for step_i in range(1, step_count):
+        print step_i
         avg_steps_since_encounter_at_this_timestep = 0
         avg_steps_since_unique_encounter_at_this_timestep = 0
         for bee in bee_array:
@@ -606,27 +593,8 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
 
         if step_i in network_steps and first_thread:
             # if one of the steps we want to capture, stick it in the dictionary
-            print "Adding network at step {} with {} edges".format(step_i, g.number_of_edges())
-            try:
-                edges, weights = zip(*nx.get_edge_attributes(g, 'weight').items())
-                plt.figure(fignum)
-                fignum += 1
-                plt.title(
-                    "Network of connectivity at step {} with thetastar = {}, {} agents in a {}x{} arena".format(
-                        step_i, present_ths, COUNTS, side_length, side_length))
-                nx.draw_spring(g, node_size=50, edge_color=weights, edge_cmap=plt.cm.bwr,
-                               width=weights, with_labels=True)
-                nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, step_i))
-            except ValueError:
-                plt.figure(fignum)
-                fignum += 1
-                plt.title(
-                    "Network of connectivity at step {} with thetastar = {}, {} agents in a {}x{} arena".format(
-                        step_i, present_ths, COUNTS, side_length, side_length))
-                nx.draw(g)
-                nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, step_i))
-            plt.savefig("{}/_at_step_{}.png".format(nx_output_dir, step_i))
-            plt.close()
+            nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, step_i))
+            nx.write_gml(g, "{}/network_at_step_{}.gml".format(nx_output_dir, step_i))
 
         # check that all bees are accounted for
         occupant_master_list = []
@@ -649,9 +617,6 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
         if len(unique_encounters) > 0:
             avg_steps_since_unique_encounter_at_this_timestep = avg_steps_since_unique_encounter_at_this_timestep / len(
                 unique_encounters)
-        print "Step {}: avg steps since encounter: {}; avg steps since unique encounter: {}".format(
-            step_i, avg_steps_since_encounter_at_this_timestep, avg_steps_since_unique_encounter_at_this_timestep
-        )
 
         lock.acquire()
         if step_i in steps_to_encounter_over_time[present_ths]:
@@ -683,6 +648,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                 food_distribution_vs_time[ths][step_i] = num_of_fed_bees
             if num_of_fed_bees == COUNTS and not converged:
                 print "Thetastar {} converged because all bees are fed at step {}".format(ths, step_i)
+                nx.write_gml(g, "{}/network_convergence_all_fed_step_{}.gml".format(nx_output_dir, step_i))
                 convergence_times[thread_name][ths] = step_i
                 networks_per_thread[thread_name][ths] = g
                 # write me!
@@ -690,6 +656,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                 converged = True
             if variance < VARIANCE_THRESHOLD and not converged:
                 print "Thetastar {} converged due to variance at step {}!".format(ths, step_i)
+                nx.write_gml(g, "{}/network_convergence_variance_step_{}.gml".format(nx_output_dir, step_i))
                 convergence_times[thread_name][ths] = step_i
                 networks_per_thread[thread_name][ths] = g
                 # write me!
@@ -698,12 +665,13 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
             lock.release()
         else:
             ths = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
-            if len(max(nx.connected_component_subgraphs(g))) == COUNTS:
+            if len(max(nx.connected_component_subgraphs(g))) == COUNTS and not converged:
+                nx.write_gml(g, "{}/network_convergence_ccsize_step_{}.gml".format(nx_output_dir, step_i))
                 convergence_times[thread_name][ths] = step_i
                 unique_encounters_per_thread[thread_name][ths] = len(unique_encounters)
                 print "Thetastar {} converged due to connected component size at step {}!".format(ths, step_i)
                 converged = True
-        if converged:
+        if converged and tracking_food:
             return num_encounters
     lock.acquire()
     networks_per_thread[thread_name][present_ths] = g
