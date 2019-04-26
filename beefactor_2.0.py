@@ -44,7 +44,7 @@ network_steps = [0, 10, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000
 side_length = int(input("How long is each side of the arena?"))
 
 NS = [25, 50, 75, 100, 150, 200, 250, 500]
-NUM_TRIALS = 5
+NUM_TRIALS = 8
 vel = 1.0  # step size, or velocity
 PCT_INITIALLY_CARRYING_FOOD = 10
 FOOD_TRANSFER_RATE = 1  # units / timestep
@@ -105,6 +105,7 @@ class Bee:
         self.positiony = np.zeros(steps)
         if r_or_u == 1:
             if initially_fed:
+                # figure this out better
                 if (2 * PCT_INITIALLY_CARRYING_FOOD) > n:
                     self.positionx[0] = random.randint(0, n)
                     self.positiony[0] = random.randint(0, n)
@@ -527,7 +528,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
     # for each bee, set their initial position and initial cell locations
     for bee in bee_array:
         g.add_node(bee.number)
-        all_paths[bee.number][0] = (bee.positionx[0], bee.positiony[0])
+        all_paths[bee.number][0] = (bee.positionx[0], bee.positiony[0], 0)
         populate_cell(all_paths, bee.number, 0, cell_length, cells, bee_array)
     if first_thread:
         print "Adding network at step {} with {} edges".format(0, g.number_of_edges())
@@ -549,6 +550,12 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
         avg_steps_since_encounter_at_this_timestep = 0
         avg_steps_since_unique_encounter_at_this_timestep = 0
         for bee in bee_array:
+            largest_cc_containing_bee = 1
+            for h in list(nx.connected_component_subgraphs(g)):
+
+                if bee.number in h.nodes():
+                    print "Len cc: {}".format(len(h.nodes()))
+                    largest_cc_containing_bee = len(h.nodes())
             if bee.donor is None and bee.receiver is None:
                 theta = bee.thetastar[random.randint(0, THETASTARRANGE - 1)]
                 bee.direction[step_i] = bee.direction[step_i - 1] + theta
@@ -566,7 +573,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                 if bee.positiony[step_i] < 0:
                     bee.positiony[step_i] += n
 
-                all_paths[bee.number][step_i] = (bee.positionx[step_i], bee.positiony[step_i])
+                all_paths[bee.number][step_i] = (bee.positionx[step_i], bee.positiony[step_i], largest_cc_containing_bee)
                 populate_cell(all_paths, bee.number, step_i, cell_length, cells, bee_array)
                 bee.placed = False
             else:
@@ -700,7 +707,7 @@ def run_everything(is_tracking_food, thread_name):
     # thread by trial! this function is called by each thread and results are written to the same dict
     for thetastar in THETASTARS:
         # initialize the array of paths: bee x step
-        all_paths = np.zeros((COUNTS, STEPS), dtype=(float, 2))
+        all_paths = np.zeros((COUNTS, STEPS), dtype=(float, 3))
 
         unique_encounters = []
         bee_array = []
@@ -761,6 +768,11 @@ def run_everything(is_tracking_food, thread_name):
             steps_to_encounter[thetastar_range] = [avg_steps_between_encounters,
                                                    avg_steps_between_unique_encounters]
         lock.release()
+        np.save(
+            '{}_range_{}_stepsfor_{}_agentsin_{}x{}box_{}'.format(thetastar_range, STEPS, COUNTS,
+                                                                  side_length,
+                                                                  side_length, num_encounters),
+            all_paths)
 
 
 def main():

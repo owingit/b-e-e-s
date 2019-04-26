@@ -57,27 +57,27 @@ web.show()
 
 pattern = "network_convergence_*.gml"
 
-for thetastar in THETASTARS:
-    gs_at_convergence = []
-    ts = thetastar[-1] - thetastar[0]
-    listOfFiles = os.listdir('networks/networks_thetastar_{}_{}x{}_{}steps'.format(ts, side_length, side_length, steps))
-    for file in listOfFiles:
-        if fnmatch.fnmatch(file, pattern):
-            g = nx.read_gml('networks/networks_thetastar_{}_{}x{}_{}steps/{}'.format(ts, side_length, side_length, steps, file))
-            gs_at_convergence.append((g, convergence)
+# for thetastar in THETASTARS:
+#     gs_at_convergence = []
+#     ts = thetastar[-1] - thetastar[0]
+#     listOfFiles = os.listdir('networks/networks_thetastar_{}_{}x{}_{}steps'.format(ts, side_length, side_length, steps))
+#     for file in listOfFiles:
+#         if fnmatch.fnmatch(file, pattern):
+#             g = nx.read_gml('networks/networks_thetastar_{}_{}x{}_{}steps/{}'.format(ts, side_length, side_length, steps, file))
+#             gs_at_convergence.append((g, convergence)
+#
+#     degree_distribution_dict[ts].extend(gs_at_convergence)
 
-    degree_distribution_dict[ts].extend(gs_at_convergence)
-
-for ts in degree_distribution_dict.keys():
-    for (g, step) in degree_distribution_dict[ts]:
+# for ts in degree_distribution_dict.keys():
+#     for (g, step) in degree_distribution_dict[ts]:
 #        plt.xscale('log')
-        plt.yscale('log')
-        gdc = nx.degree_centrality(g)
-        gd = nx.degree(g)
-        gdc_plot = dict(collections.Counter(gdc.values()))
-        gdc_plot = {float(key)+(1/steps): value for key, value in gdc_plot.items()}
-        plt.scatter(list(gdc_plot.keys()), list(gdc_plot.values()), c='b',marker='x')
-        plt.xlabel('Degree')
-        plt.ylabel('Number of Agents')
-        plt.title('Degree distribution at {} for a trial @ theta* {}'.format(step, ts))
-        plt.show()
+#         plt.yscale('log')
+#         gdc = nx.degree_centrality(g)
+#         gd = nx.degree(g)
+#         gdc_plot = dict(collections.Counter(gdc.values()))
+#         gdc_plot = {float(key)+(1/steps): value for key, value in gdc_plot.items()}
+#         plt.scatter(list(gdc_plot.keys()), list(gdc_plot.values()), c='b',marker='x')
+#         plt.xlabel('Degree')
+#         plt.ylabel('Number of Agents')
+#         plt.title('Degree distribution at {} for a trial @ theta* {}'.format(step, ts))
+#         plt.show()
