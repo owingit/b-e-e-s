@@ -50,7 +50,8 @@ PCT_INITIALLY_CARRYING_FOOD = 10
 FOOD_TRANSFER_RATE = 1  # units / timestep
 FOOD_THRESHOLD = 10
 VARIANCE_THRESHOLD = 0.8
-NUM_CELLS = near(side_length)
+sl2 = (side_length * side_length) / 2
+NUM_CELLS = near(sl2)
 NUM_CELLS_PER_ROW = math.sqrt(NUM_CELLS)
 
 THETASTARRANGE = 100
@@ -546,7 +547,6 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
     #    2. populate cell lists
     #    3. feed
     for step_i in range(1, step_count):
-        print step_i
         avg_steps_since_encounter_at_this_timestep = 0
         avg_steps_since_unique_encounter_at_this_timestep = 0
         for bee in bee_array:
@@ -554,7 +554,6 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
             for h in list(nx.connected_component_subgraphs(g)):
 
                 if bee.number in h.nodes():
-                    print "Len cc: {}".format(len(h.nodes()))
                     largest_cc_containing_bee = len(h.nodes())
             if bee.donor is None and bee.receiver is None:
                 theta = bee.thetastar[random.randint(0, THETASTARRANGE - 1)]
