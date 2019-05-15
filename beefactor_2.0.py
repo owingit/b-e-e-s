@@ -23,6 +23,7 @@ def near(limit):
     val = int(math.pow(limit, .5))
     return val*val
 
+
 NETWORK_STRING = "{}/network_at_step_{}.gml"
 
 GS = []
@@ -45,14 +46,14 @@ network_steps = np.arange(0, STEPS, 10)
 side_length = int(input("How long is each side of the arena?"))
 
 NS = [25, 50, 75, 100, 150, 200, 250, 500]
-NUM_TRIALS = 8
+NUM_TRIALS = 4
 vel = 1.0  # step size, or velocity
 PCT_INITIALLY_CARRYING_FOOD = 10
 FOOD_TRANSFER_RATE = 1  # units / timestep
 FOOD_THRESHOLD = 10
 VARIANCE_THRESHOLD = 0.8
-sl2 = (side_length * side_length) / 2
-NUM_CELLS = near(sl2)
+# sl2 = (side_length * side_length) / 2
+NUM_CELLS = near(side_length * 2)
 NUM_CELLS_PER_ROW = math.sqrt(NUM_CELLS)
 
 THETASTARRANGE = 100
@@ -181,6 +182,10 @@ def check_x_boundary(coords, n):
     return a, b
 
 
+def get_thetastar(thetastar_range):
+    return thetastar_range[-1] - thetastar_range[0]
+
+
 def check_y_boundary(coords, n):
     a = False
     b = False
@@ -202,7 +207,7 @@ def get_adjacent_cells(x, y):
 
 def initialize_result_dictionaries():
     for ts in THETASTARS:
-        thetastar = ts[-1] - ts[0]
+        thetastar = get_thetastar(ts)
         steps_to_encounter_over_time[thetastar] = collections.OrderedDict()
         steps_to_unique_encounter_over_time[thetastar] = collections.OrderedDict()
         unique_encounters_up_to_stepcount[thetastar] = collections.OrderedDict()
@@ -246,7 +251,7 @@ def setup_results(is_tracking_food):
         # gs_converged_at_this_thetastar = 0
         # totals_converged_at_this_thetastar = 0
         # uniques_converged_at_this_thetastar = 0
-        ts = thetastar[-1] - thetastar[0]
+        ts = get_thetastar(thetastar)
         for step in gs_up_to_stepcount[ts].keys():
             gs_up_to_stepcount[ts][step] = gs_up_to_stepcount[ts][step] / (
                         NUM_TRIALS) #
@@ -396,13 +401,16 @@ def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, th
         locations_to_check = {}
         neighbor_bees_to_cell = []
         bees_in_cell = cells[cell]['occupants']
+        if len(bees_in_cell) == 0:
+            exclude_cells.append(cell)
+            continue
         for index in cells[cell]['neighbor_indices']:
             if index not in exclude_cells:
                 neighbor_bees_to_cell.extend(cells[index]['occupants'])
         for bee in bees_in_cell:
-            locations_to_check[bee] = tuple(all_paths[bee][current_step])
+            locations_to_check[bee] = tuple(all_paths[bee][current_step])[:2]
         for bee in neighbor_bees_to_cell:
-            locations_to_check[bee] = tuple(all_paths[bee][current_step])
+            locations_to_check[bee] = tuple(all_paths[bee][current_step])[:2]
         for (a, ordered_pair_a), (b, ordered_pair_b) in itertools.combinations(
                 locations_to_check.items(), 2):
 
@@ -454,7 +462,7 @@ def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, th
 
     # add data to dicts for plotting later
     if len(g.edges()) > 0:
-        thetastar_to_save = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
+        thetastar_to_save = get_thetastar(bee_array[0].thetastar)
         if current_step in gs_up_to_stepcount[thetastar_to_save]:
             gs_up_to_stepcount[thetastar_to_save][current_step] += len(
                 max(nx.connected_components(g), key=len))
@@ -463,14 +471,14 @@ def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, th
                 max(nx.connected_components(g), key=len))
 
     if len(unique_encounters) > 0:
-        thetastar_to_save = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
+        thetastar_to_save = get_thetastar(bee_array[0].thetastar)
         if current_step in unique_encounters_up_to_stepcount[thetastar_to_save]:
             unique_encounters_up_to_stepcount[thetastar_to_save][current_step] += len(unique_encounters)
         else:
             unique_encounters_up_to_stepcount[thetastar_to_save][current_step] = len(unique_encounters)
 
     if len(encounters_at_this_step) + running_total > 0:
-        thetastar_to_save = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
+        thetastar_to_save = get_thetastar(bee_array[0].thetastar)
         if current_step in total_encounters_up_to_stepcount[thetastar_to_save]:
             total_encounters_up_to_stepcount[thetastar_to_save][current_step] += len(
                 encounters_at_this_step) + running_total
@@ -526,7 +534,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
     num_encounters = 0
     cells = dict()
     cell_length = n / NUM_CELLS_PER_ROW
-    present_ths = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
+    present_ths = get_thetastar(bee_array[0].thetastar)
     nx_output_dir = "networks/networks_thetastar_{}_{}x{}_{}steps".format(present_ths, side_length,
                                                                           side_length, COUNTS)
     mkdir_p(nx_output_dir)
@@ -556,18 +564,23 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
 
     for bee in bee_array:
         g.add_node(bee.number)
-        all_paths[bee.number][0] = (bee.positionx[0], bee.positiony[0], 0)
+        all_paths[bee.number][0] = (bee.positionx[0], bee.positiony[0], 0, [])
         populate_cell(all_paths, bee.number, 0, cell_length, cells, bee_array)
     if first_thread:
         nx.write_gml(g, NETWORK_STRING.format(nx_output_dir, 0))
     for step_i in range(1, step_count):
+        print step_i
         avg_steps_since_encounter_at_this_timestep = 0
         avg_steps_since_unique_encounter_at_this_timestep = 0
         for bee in bee_array:
             largest_cc_containing_bee = 1
+            cc_nodes = []
             for h in list(nx.connected_component_subgraphs(g)):
                 if bee.number in h.nodes():
-                    largest_cc_containing_bee = len(h.nodes())
+                    if len(h.nodes()) > largest_cc_containing_bee:
+                        largest_cc_containing_bee = len(h.nodes())
+                        del cc_nodes[:]
+                        cc_nodes = list(h.nodes())
             if bee.donor is None and bee.receiver is None:
                 theta = bee.thetastar[random.randint(0, THETASTARRANGE - 1)]
                 bee.direction[step_i] = bee.direction[step_i - 1] + theta
@@ -585,7 +598,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                 if bee.positiony[step_i] < 0:
                     bee.positiony[step_i] += n
 
-                all_paths[bee.number][step_i] = (bee.positionx[step_i], bee.positiony[step_i], largest_cc_containing_bee)
+                all_paths[bee.number][step_i] = (bee.positionx[step_i], bee.positiony[step_i], largest_cc_containing_bee, cc_nodes)
                 populate_cell(all_paths, bee.number, step_i, cell_length, cells, bee_array)
                 bee.placed = False
             else:
@@ -610,9 +623,9 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                          bee.step_count_of_last_unique_encounter[index]
                 avg_steps_since_unique_encounter_at_this_timestep += u_diff
 
-        if step_i in network_steps and first_thread:
-            # if one of the steps we want to capture, write it for viz
-            nx.write_gml(g, NETWORK_STRING.format(nx_output_dir, step_i))
+        # if step_i in network_steps and first_thread:
+        #     # if one of the steps we want to capture, write it for viz
+        #     nx.write_gml(g, NETWORK_STRING.format(nx_output_dir, step_i))
 
         # check that all bees are accounted for
         occupant_master_list = []
@@ -653,7 +666,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
 
         # if feeding was happening, set up the food distribution tracking
         if tracking_food:
-            ths = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
+            ths = get_thetastar(bee_array[0].thetastar)
             food_levels = [bee.food_level for bee in bee_array]
             variance = np.var(food_levels)
             # print "Individual variance in food level at stepcount {}: {}".format(step_i, variance)
@@ -682,7 +695,7 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                 converged = True
             lock.release()
         else:
-            ths = bee_array[0].thetastar[-1] - bee_array[0].thetastar[0]
+            ths = get_thetastar(bee_array[0].thetastar)
             if len(max(nx.connected_component_subgraphs(g))) == COUNTS and not converged:
                 nx.write_gml(g, "{}/network_convergence_ccsize_step_{}.gml".format(nx_output_dir, step_i))
                 convergence_times[thread_name][ths] = step_i
@@ -711,17 +724,17 @@ def run_everything(is_tracking_food, thread_name):
     if is_tracking_food:
         lock.acquire()
         for ts in THETASTARS:
-            thetastar = ts[-1] - ts[0]
+            thetastar = get_thetastar(ts)
             food_distribution_vs_time[thetastar] = collections.OrderedDict()
         lock.release()
 
     # thread by trial! this function is called by each thread and results are written to the same dict
     for thetastar in THETASTARS:
-        thetastar_range = thetastar[THETASTARRANGE - 1] - thetastar[0]
+        thetastar_range = get_thetastar(thetastar)
         print "Thetastar: {} in thread {}\n".format(thetastar_range, thread_name)
 
         # initialize the array of paths of shape bees x steps
-        all_paths = np.zeros((COUNTS, STEPS), dtype=(float, 3))
+        all_paths = np.zeros((COUNTS, STEPS), dtype=(object, 4))
 
         # initialize vector of agents and list of unique encounters
         unique_encounters = []
@@ -780,11 +793,11 @@ def run_everything(is_tracking_food, thread_name):
             steps_to_encounter[thetastar_range] = [avg_steps_between_encounters,
                                                    avg_steps_between_unique_encounters]
         lock.release()
-        np.save(
-            '{}_range_{}_stepsfor_{}_agentsin_{}x{}box_{}'.format(thetastar_range, STEPS, COUNTS,
+        if thread_name == "Thread-1":
+            np.save('{}_range_{}_stepsfor_{}_agentsin_{}x{}box_{}'.format(thetastar_range, STEPS, COUNTS,
                                                                   side_length,
                                                                   side_length, num_encounters),
-            all_paths)
+                all_paths)
 
 
 def main():
