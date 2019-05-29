@@ -2,6 +2,7 @@ import numpy as np
 from sklearn import preprocessing
 import scipy.optimize as opt
 from scipy.stats import genlogistic
+from scipy.stats import logistic
 import matplotlib.pyplot as plt
 import collections
 import json
@@ -62,7 +63,7 @@ for ts in THETASTARS:
     ax1.plot(x, y, 'o')
     plt.legend()
     ax2 = ax1.twinx()
-    ax2.plot(x, genlogistic.pdf(x, loc=math.log(a_) / r_, c=r_), color='orange')
+    ax2.plot(x, logistic.pdf(x, loc=(math.log(a_) / r_), scale=1), color='orange')
     plt.xlabel('Step')
     ax1.set_ylabel('Size of the largest connected component')
     ax2.set_ylabel('Probability density')
