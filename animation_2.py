@@ -69,57 +69,57 @@ values = [max(value) for value in dict_of_ccsizes.values()]
 m = max(values)
 print m
 
-# cols = dict(mcolors.XKCD_COLORS, **mcolors.CSS4_COLORS)
-# if cols: change from colors.colors to cols.values()
-colors = cm.get_cmap('plasma_r', m+1)
-num_values = len(colors.colors)
-x = np.arange(num_values)
-zipped_colors = zip(x, colors.colors)
-
-for key in dict_of_ccsizes.keys():
-    for ccsize in dict_of_ccsizes[key]:
-        colors_to_ccsize[key].append(zipped_colors[int(ccsize)])
-
-values_that_appear = []
-for i in range(0, num_steps):
-    for j in range(0, len(items)):
-        if (dict_of_ccsizes[j][i], colors_to_ccsize[j][i]) not in values_that_appear:
-            values_that_appear.append((dict_of_ccsizes[j][i], colors_to_ccsize[j][i]))
-
-values_that_appear.sort()
-
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-
-plt.xlim(0, side_length)
-plt.ylim(0, side_length)
-# fig.suptitle('Paths over time colored by connected component size')
-
-graphs = {}
-for agent in range(0, num_agents):
-    agent_graph, = plt.plot([], [], 'o')
-    graphs[agent] = agent_graph
-
-
-def animate(i):
-    for k in graphs.keys():
-        graphs[k].set_data(dict_of_xs[k][:i+1], dict_of_ys[k][:i+1])
-        graphs[k].set_color(colors_to_ccsize[k][:i+1][-1][1])
-    fig.suptitle('Paths over time colored by connected component size at step {}'.format(i))
-    return graphs.values()
-
-
-ani = FuncAnimation(fig, animate, frames=num_steps, interval=1000)
-ani.save('movie_{}.mp4'.format(filename))
-box = ax.get_position()
-ax.set_position([box.x0, box.y0 + box.height * 0.2,
-                 box.width, box.height * 0.8])
-patches = []
-for i in range(0, len(values_that_appear)):
-    patch = mpatches.Patch(color=values_that_appear[i][1][1], label='{}'.format(values_that_appear[i][1][0]))
-    patches.append(patch)
-plt.legend(handles=patches, bbox_to_anchor=(0.5, -0.05), ncol=10, loc='upper center')
-plt.show()
+# # cols = dict(mcolors.XKCD_COLORS, **mcolors.CSS4_COLORS)
+# # if cols: change from colors.colors to cols.values()
+# colors = cm.get_cmap('plasma_r', m+1)
+# num_values = len(colors.colors)
+# x = np.arange(num_values)
+# zipped_colors = zip(x, colors.colors)
+#
+# for key in dict_of_ccsizes.keys():
+#     for ccsize in dict_of_ccsizes[key]:
+#         colors_to_ccsize[key].append(zipped_colors[int(ccsize)])
+#
+# values_that_appear = []
+# for i in range(0, num_steps):
+#     for j in range(0, len(items)):
+#         if (dict_of_ccsizes[j][i], colors_to_ccsize[j][i]) not in values_that_appear:
+#             values_that_appear.append((dict_of_ccsizes[j][i], colors_to_ccsize[j][i]))
+#
+# values_that_appear.sort()
+#
+# fig = plt.figure()
+# ax = fig.add_subplot(1, 1, 1)
+#
+# plt.xlim(0, side_length)
+# plt.ylim(0, side_length)
+# # fig.suptitle('Paths over time colored by connected component size')
+#
+# graphs = {}
+# for agent in range(0, num_agents):
+#     agent_graph, = plt.plot([], [], 'o')
+#     graphs[agent] = agent_graph
+#
+#
+# def animate(i):
+#     for k in graphs.keys():
+#         graphs[k].set_data(dict_of_xs[k][:i+1], dict_of_ys[k][:i+1])
+#         graphs[k].set_color(colors_to_ccsize[k][:i+1][-1][1])
+#     fig.suptitle('Paths over time colored by connected component size at step {}'.format(i))
+#     return graphs.values()
+#
+#
+# ani = FuncAnimation(fig, animate, frames=num_steps, interval=1000)
+# ani.save('movie_{}.mp4'.format(filename))
+# box = ax.get_position()
+# ax.set_position([box.x0, box.y0 + box.height * 0.2,
+#                  box.width, box.height * 0.8])
+# patches = []
+# for i in range(0, len(values_that_appear)):
+#     patch = mpatches.Patch(color=values_that_appear[i][1][1], label='{}'.format(values_that_appear[i][1][0]))
+#     patches.append(patch)
+# plt.legend(handles=patches, bbox_to_anchor=(0.5, -0.05), ncol=10, loc='upper center')
+# plt.show()
 #
 # fig = plt.figure()
 # ax = fig.add_subplot(1, 1, 1)

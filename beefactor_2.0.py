@@ -396,16 +396,16 @@ def what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_arra
 def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, thread_name, running_total,
            unique_encounters):
     encounters_at_this_step = []
-    exclude_cells = []
+    exclude_cells = {}
     for cell in cells:
         locations_to_check = {}
         neighbor_bees_to_cell = []
         bees_in_cell = cells[cell]['occupants']
         if len(bees_in_cell) == 0:
-            exclude_cells.append(cell)
+            exclude_cells[cell] = True
             continue
         for index in cells[cell]['neighbor_indices']:
-            if index not in exclude_cells:
+            if exclude_cells.get(index) is None:
                 neighbor_bees_to_cell.extend(cells[index]['occupants'])
         for bee in bees_in_cell:
             locations_to_check[bee] = tuple(all_paths[bee][current_step])[:2]
@@ -456,7 +456,7 @@ def engage(is_tracking_food, all_paths, g, current_step, n, bee_array, cells, th
                           ordered_pair_b[1] - ordered_pair_a[1]) <= vel and not modified:
                 what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_array, a, b,
                                                  unique_encounters, encounters_at_this_step)
-        exclude_cells.append(cell)
+        exclude_cells[cell] = True
 
     lock.acquire()
 
@@ -623,9 +623,9 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                          bee.step_count_of_last_unique_encounter[index]
                 avg_steps_since_unique_encounter_at_this_timestep += u_diff
 
-        # if step_i in network_steps and first_thread:
-        #     # if one of the steps we want to capture, write it for viz
-        #     nx.write_gml(g, NETWORK_STRING.format(nx_output_dir, step_i))
+        if step_i in network_steps and first_thread:
+            # if one of the steps we want to capture, write it for viz
+            nx.write_gml(g, NETWORK_STRING.format(nx_output_dir, step_i))
 
         # check that all bees are accounted for
         occupant_master_list = []

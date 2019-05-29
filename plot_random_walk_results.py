@@ -126,8 +126,8 @@ def plot_steps_between_over_time(total, counts, side_length, steps, num_trials):
         # first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
         # plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
         #          label='Thetastar: {}'.format(thetastar))
-        plt.loglog(sorted(total[thetastar].keys()), total[thetastar].values(), zorder=10,
-                   label='Thetastar: {}'.format(thetastar))
+        plt.plot(sorted(total[thetastar].keys()), total[thetastar].values(), zorder=10,
+                 label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Avg steps between encounters')
     plt.title('Steps between encounters over time for each thetastar: {} agents, {} steps in a {}x{} arena (n={})'.format(
@@ -143,14 +143,13 @@ def plot_unique_steps_between_over_time(total, counts, side_length, steps, num_t
         total[thetastar] = {int(key): val for key, val in total[thetastar].items()}
         # convergence_time = get_convergence_time(thetastar)
         # first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
-        # plt.loglog(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
-        #          label='Thetastar: {}'.format(thetastar))
         plt.loglog(sorted(total[thetastar].keys()), total[thetastar].values(), zorder=10,
                    label='Thetastar: {}'.format(thetastar))
-    plt.xlabel('Step')
-    plt.ylabel('Avg steps between unique encounters')
+        # plt.hist(sorted(total[thetastar].values()), bins=50, histtype='step')
+    plt.xlabel('# of steps')
+    plt.ylabel('Freq')
     plt.title('Steps between unique encounters over time for each thetastar: {} agents, {} steps in a {}x{} arena (n={})'.format(
-        counts, steps, side_length, side_length, num_trials))
+            counts, steps, side_length, side_length, num_trials))
     plt.legend()
     plt.show()
 
