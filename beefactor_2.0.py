@@ -46,7 +46,7 @@ network_steps = np.arange(0, STEPS, 10)
 side_length = int(input("How long is each side of the arena?"))
 
 NS = [25, 50, 75, 100, 150, 200, 250, 500]
-NUM_TRIALS = 4
+NUM_TRIALS = 5
 vel = 1.0  # step size, or velocity
 PCT_INITIALLY_CARRYING_FOOD = 10
 FOOD_TRANSFER_RATE = 1  # units / timestep
@@ -345,11 +345,13 @@ def what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_arra
             encounters_at_this_step.extend([a, b])
             bee_array[a].step_count_of_last_encounter.append(current_step)
             bee_array[b].step_count_of_last_encounter.append(current_step)
-            if g.has_edge(a, b) or g.has_edge(b, a):
-                g.edges[a, b]['weight'] += 1
-            else:
-                g.add_edge(a, b, weight=1)
-                unique_encounters.append((a, b))
+            if not is_tracking_food:
+                if g.has_edge(a, b) or g.has_edge(b, a):
+                    g.edges[a, b]['weight'] += 1
+                else:
+                    g.add_edge(a, b, weight=1) 
+	    if (a, b) not in unique_encounters or (b, a) not in unique_encounters:
+	        unique_encounters.append((a, b))
                 bee_array[a].step_count_of_last_unique_encounter.append(current_step)
                 bee_array[b].step_count_of_last_unique_encounter.append(current_step)
 
@@ -358,12 +360,17 @@ def what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_arra
             if bee_array[a].food_level > bee_array[b].food_level:
                 if bee_array[a].donor is None and bee_array[b].receiver is None:
                     # trophallaxis encounter
+    	            # expand the networks ONLY DURING TROPHALLAXIS
+	    	    if g.has_edge(a, b) or g.has_edge(b, a):
+                        g.edges[a, b]['weight'] += 1
+                    else:
+                        g.add_edge(a, b, weight=1)
                     bee_array[a].donor = a
                     bee_array[a].receiver = b
                     bee_array[b].donor = a
                     bee_array[b].receiver = b
-                    steps_while_feeding = (bee_array[a].food_level - bee_array[
-                        b].food_level) / FOOD_TRANSFER_RATE
+                    steps_while_feeding = int((bee_array[a].food_level - bee_array[
+                        b].food_level) / 2) / FOOD_TRANSFER_RATE
                     bee_array[a].steps_to_wait = steps_while_feeding
                     bee_array[b].steps_to_wait = steps_while_feeding
                     bee_array[a].counts_for_encounter = False
@@ -371,12 +378,17 @@ def what_happens_during_an_encounter(g, is_tracking_food, current_step, bee_arra
             elif bee_array[a].food_level < bee_array[b].food_level:
                 if bee_array[a].donor is None and bee_array[b].receiver is None:
                     # trophallaxis encounter
+    	            # expand the networks ONLY DURING TROPHALLAXIS
+	    	    if g.has_edge(a, b) or g.has_edge(b, a):
+                        g.edges[a, b]['weight'] += 1
+                    else:
+                        g.add_edge(a, b, weight=1)
                     bee_array[a].donor = b
                     bee_array[a].receiver = a
                     bee_array[b].donor = b
                     bee_array[b].receiver = a
-                    steps_while_feeding = (bee_array[b].food_level - bee_array[
-                        a].food_level) / FOOD_TRANSFER_RATE
+                    steps_while_feeding = int((bee_array[b].food_level - bee_array[
+                        a].food_level) / 2) / FOOD_TRANSFER_RATE
                     bee_array[a].steps_to_wait = steps_while_feeding
                     bee_array[b].steps_to_wait = steps_while_feeding
                     bee_array[a].counts_for_encounter = False
@@ -702,8 +714,8 @@ def random_walk(all_paths, bee_array, n, step_count, tracking_food, thread_name,
                 unique_encounters_per_thread[thread_name][ths] = len(unique_encounters)
                 print "Thetastar {} converged due to connected component size at step {}!".format(ths, step_i)
                 converged = True
-        if converged and tracking_food:
-            return num_encounters
+#        if converged and tracking_food:
+#            return num_encounters
     lock.acquire()
     networks_per_thread[thread_name][present_ths] = g
     convergence_times[thread_name][present_ths] = STEPS
