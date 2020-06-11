@@ -15,9 +15,9 @@ import math
 
 import json
 
-COUNTS = 1024
-side_length = 716
-STEPS = 5000
+COUNTS = 225
+side_length = 150
+STEPS = 1000
 THETASTARRANGE = 100
 THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), THETASTARRANGE) for i in
               (1, 1.5, 2, 3, 4, 6, 8, 12)]
@@ -63,7 +63,9 @@ def random_walk(all_paths, bee_array, side_length, steps):
                bee.positiony[step_i] += side_length
 		
 	    displacement = np.sqrt((bee.positionx[step_i] - bee.positionx[0])**2 + (bee.positiony[step_i] - bee.positiony[0])**2)
-            if displacement >= side_length / np.sqrt(COUNTS):
+	    print "displacement: {}".format(displacement)
+	    print "Side length / sqrt count / 2: {}".format(side_length / np.sqrt(COUNTS) / 2)
+            if displacement >= (side_length / np.sqrt(COUNTS) / 2):
                 print step_i
         	return step_i
 
@@ -91,7 +93,7 @@ def run():
             init_positionsx = np.linspace(0, side_length - (side_length / math.sqrt(COUNTS) + 1),
                                           int(math.sqrt(COUNTS)))
             init_positionsy = np.linspace(0, side_length - (side_length / math.sqrt(COUNTS) + 1),
-                                      int(math.sqrt(COUNTS)))
+                                          int(math.sqrt(COUNTS)))
             x, y = np.meshgrid(init_positionsx, init_positionsy)
 
             # initialize all bees
@@ -105,13 +107,8 @@ def run():
     for key in data.keys():
 	data[key] = data[key] / NUM_TRIALS
 
-    plt.scatter(data.keys(), data.values())
-    plt.xlabel('Thetastar')
-    plt.ylabel('Steps')
-    plt.title('Theta* vs. step count to reach {} displacement, {}x{} arena with {} agents'.format(side_length / np.sqrt(COUNTS), side_length, side_length, COUNTS))
-#    popt, pcov = curve_fit(func,  data.keys(),  data.values())    
-#    plt.plot(data.keys(), func(data.keys(), *popt), 'r-')
-    plt.show()
+    with open('one_agent_in_large_system.json', 'w') as fp:
+        json.dump(data.items(), fp, sort_keys=True)
 def main():
     run()
 

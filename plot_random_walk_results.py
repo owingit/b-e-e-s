@@ -5,9 +5,9 @@ import numpy as np
 import math
 
 FOOD_THRESHOLD = 10
-THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), 50) for i in
-              (1, 1.5, 2, 3, 4, 6, 8, 12)]
-THETASTARS.extend([np.linspace(0, 0, 50)])
+THETASTARS = [np.linspace(-(math.pi / i), (math.pi / i), 100) for i in
+              (1, 1.5, 2, 6, 8, 10, 12, 16)]
+THETASTARS.extend([np.linspace(0, 0, 100)])
 counts = input("how many agents?")
 side_length = input("how long were the sides?")
 steps = input("how many steps?")
@@ -122,10 +122,10 @@ def plot_steps_between_over_time(total, counts, side_length, steps, num_trials):
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         total[thetastar] = {int(key): val for key, val in total[thetastar].items()}
-        # convergence_time = get_convergence_time(thetastar)
-        # first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
-        # plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
-        #          label='Thetastar: {}'.format(thetastar))
+#        convergence_time = get_convergence_time(thetastar)
+#        first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
+#        plt.plot(sorted(first_x_pairs.keys()), first_x_pairs.values(), zorder=10,
+          #       label='Thetastar: {}'.format(thetastar))
         plt.plot(sorted(total[thetastar].keys()), total[thetastar].values(), zorder=10,
                  label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
@@ -141,11 +141,13 @@ def plot_unique_steps_between_over_time(total, counts, side_length, steps, num_t
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         total[thetastar] = {int(key): val for key, val in total[thetastar].items()}
-        # convergence_time = get_convergence_time(thetastar)
-        # first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
-        plt.loglog(sorted(total[thetastar].keys()), total[thetastar].values(), zorder=10,
+        #convergence_time = get_convergence_time(thetastar)
+        #first_x_pairs = shrink_to_convergence(total[thetastar], convergence_time)
+	#plt.loglog(sorted(first_x_pairs.keys()),
+         #          first_x_pairs.values(), label='Thetastar: {}'.format(thetastar))
+        plt.plot(sorted(total[thetastar].keys()), total[thetastar].values(), zorder=10,
                    label='Thetastar: {}'.format(thetastar))
-        # plt.hist(sorted(total[thetastar].values()), bins=50, histtype='step')
+    #    plt.hist(sorted(total[thetastar].values()), bins=50, histtype='step')
     plt.xlabel('# of steps')
     plt.ylabel('Freq')
     plt.title('Steps between unique encounters over time for each thetastar: {} agents, {} steps in a {}x{} arena (n={})'.format(
@@ -159,12 +161,28 @@ def plot_gs_up_to_stepcount_data(gs_up_to_stepcount_data, counts, side_length, n
     for ts in THETASTARS:
         thetastar = ts[-1] - ts[0]
         gs_up_to_stepcount_data[thetastar] = {int(key): val for key, val in gs_up_to_stepcount_data[thetastar].items()}
-        # convergence_time = get_convergence_time(thetastar)
-        # first_x_pairs = shrink_to_convergence(gs_up_to_stepcount_data[thetastar], convergence_time)
-        # plt.plot(sorted(first_x_pairs.keys()),
-        #            first_x_pairs.values(), label='Thetastar: {}'.format(thetastar))
+        #convergence_time = get_convergence_time(thetastar)
+        #first_x_pairs = shrink_to_convergence(gs_up_to_stepcount_data[thetastar], convergence_time)
+        #plt.plot(sorted(first_x_pairs.keys()),
+        #         first_x_pairs.values(), label='Thetastar: {}'.format(thetastar))
         plt.plot(sorted(gs_up_to_stepcount_data[thetastar].keys()), gs_up_to_stepcount_data[thetastar].values(),
-                 label='Thetastar: {}'.format(thetastar))
+                  label='Thetastar: {}'.format(thetastar))
+    plt.xlabel('Step')
+    plt.ylabel('Size of the largest connected component')
+    plt.legend()
+    plt.title(
+        'Size of the largest connected component vs. time for {} agents in a {}x{} arena (n={})'.format(
+            counts, side_length, side_length, num_trials))
+    plt.show()
+    for ts in THETASTARS:
+        thetastar = ts[-1] - ts[0]
+        gs_up_to_stepcount_data[thetastar] = {int(key): val for key, val in gs_up_to_stepcount_data[thetastar].items()}
+        #convergence_time = get_convergence_time(thetastar)
+        #first_x_pairs = shrink_to_convergence(gs_up_to_stepcount_data[thetastar], convergence_time)
+        #plt.loglog(sorted(first_x_pairs.keys()),
+        #           first_x_pairs.values(), label='Thetastar: {}'.format(thetastar))
+        plt.loglog(sorted(gs_up_to_stepcount_data[thetastar].keys()), gs_up_to_stepcount_data[thetastar].values(),
+                   label='Thetastar: {}'.format(thetastar))
     plt.xlabel('Step')
     plt.ylabel('Size of the largest connected component')
     plt.legend()
