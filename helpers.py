@@ -1,6 +1,7 @@
 import numpy
 import matplotlib.pyplot as plt
 import math
+import random
 
 
 def get_uniform_coordinates(index, side_length, total):
@@ -25,8 +26,8 @@ def test_initial_coordinates():
 
 
 def get_initial_direction(theta_star_range):
-    all_directions = np.linspace(-math.pi, math.pi, theta_star_range)
+    all_directions = numpy.linspace(-math.pi, math.pi, theta_star_range)
     return all_directions[random.randint(0, theta_star_range - 1)]
 
 
-test_initial_coordinates()
+# test_initial_coordinates()
