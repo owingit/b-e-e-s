@@ -1,15 +1,16 @@
-import helpers
+import simulation_helpers
 import random
 import numpy as np
 import math
-import matplotlib.pyplot as plt
+
 import networkx as nx
 
 
 class Bee:
-    #  Number, total number, theta*, box dimension, number of steps,
+    #  Number, total number, theta*, thetastar_range, box dimension, number of steps,
     #  starting distribution, whether initially fed, whether to use periodic boundary conditions
-    def __init__(self, i, total, tstar, initially_fed, n, steps, r_or_u, use_periodic_boundary_conditions):
+    def __init__(self, i, total, tstar, tstar_range,
+                 initially_fed_percentage, n, steps, r_or_u, use_periodic_boundary_conditions):
         self.velocity = 1.0
         self.side_length_of_enclosure = n
         self.positionx = np.zeros(steps)
@@ -18,13 +19,13 @@ class Bee:
             self.positionx[0] = random.randint(0, n)
             self.positiony[0] = random.randint(0, n)
         else:
-            uniform_x_position, uniform_y_position = helpers.get_uniform_coordinates(i, n, total)
+            uniform_x_position, uniform_y_position = simulation_helpers.get_uniform_coordinates(i, n, total)
             self.positionx[0] = uniform_x_position
             self.positiony[0] = uniform_y_position
         self.direction = np.zeros(steps)
-        self.direction[0] = helpers.get_initial_direction(100)
+        self.direction[0] = simulation_helpers.get_initial_direction(tstar_range)
         self.theta_star = tstar
-        self.trace = {0: (self.positionx, self.positiony)}
+        self.trace = {0: (self.positionx[0], self.positiony[0])}
 
         self.name = "Bee #{}".format(i)
         self.number = i
@@ -33,16 +34,18 @@ class Bee:
         else:
             self.boundary_conditions = self.non_periodic_boundary_conditions
 
-        if initially_fed:
+        if random.random() < initially_fed_percentage:
             self.food_level = 100
         else:
             self.food_level = 0
 
-        self.active_donor = None
-        self.active_receiver = None
+        self.active_donor = False
+        self.active_receiver = False
+        self.is_engaged_in_trophallaxis = False
+        self.food_to_give = 0
+        self.food_to_receive = 0
         self.steps_to_wait = 0
 
-        self.placed = False
         self.bees_seen = {}  # dict mapping bee number: list of steps at which encountered
         self.food_in_edges = []  # list of bees that have fed this bee
         self.food_out_edges = []  # list of bees that have been fed by this bee
@@ -56,10 +59,35 @@ class Bee:
             direction = self.direction[current_step]
         else:
             direction = self.direction[current_step - 1] + step_theta
-        self.direction[current_step] = direction
-        self.positionx[current_step] = self.positionx[current_step - 1] + self.velocity * math.cos(direction)
-        self.positiony[current_step] = self.positiony[current_step - 1] + self.velocity * math.sin(direction)
+        if self.active_donor or self.active_receiver:
+            self.engage()
+            self.stay_put(current_step)
+        else:
+            self.attempt_step(current_step, direction)
 
+    def engage(self):
+        if self.food_to_give > 0:
+            food_to_give_at_this_timestep = float(self.food_to_give / self.steps_to_wait)
+            self.food_level = self.food_level - food_to_give_at_this_timestep
+            self.food_to_give = self.food_to_give - food_to_give_at_this_timestep
+
+        if self.food_to_receive > 0:
+            food_to_receive_at_this_timestep = float(self.food_to_receive / self.steps_to_wait)
+            self.food_level = self.food_level + food_to_receive_at_this_timestep
+            self.food_to_receive = self.food_to_receive - food_to_receive_at_this_timestep
+
+    def attempt_step(self, current_step, direction):
+        self.direction[current_step] = direction
+        potential_x_position = self.positionx[current_step - 1] + self.velocity * math.cos(direction)
+        potential_y_position = self.positiony[current_step - 1] + self.velocity * math.sin(direction)
+
+        #  TODO: Check for obstacles, excluded volume, etc
+
+        self.complete_step(current_step, potential_x_position, potential_y_position)
+
+    def complete_step(self, current_step, x, y):
+        self.positionx[current_step] = x
+        self.positiony[current_step] = y
         self.boundary_conditions(current_step)
         self.trace[current_step] = (self.positionx[current_step], self.positiony[current_step])
 
@@ -68,6 +96,11 @@ class Bee:
         self.positionx[current_step] = self.positionx[current_step - 1]
         self.positiony[current_step] = self.positiony[current_step - 1]
         self.trace[current_step] = (self.positionx[current_step], self.positiony[current_step])
+        self.steps_to_wait -= 1
+        if self.steps_to_wait == 0:
+            self.active_donor = None
+            self.active_receiver = None
+            self.is_engaged_in_trophallaxis = False
 
     def periodic_boundary_conditions(self, current_step):
         if self.positionx[current_step] > self.side_length_of_enclosure:
@@ -102,21 +135,3 @@ class Bee:
 
         if flip_direction:
             self.direction[current_step] = -self.direction[current_step]
-
-
-def test_bees():
-    bee_array = []
-    total_bees = 100
-    thetastar = [np.linspace(-(math.pi / 2), (math.pi / 2), 100)]
-    thetastar = list(thetastar[0])
-    n = 10
-    steps = 10
-    for i in range(0, total_bees):
-        bee_array.append(Bee(i, total_bees, thetastar, False, n, steps, "uniform", True))
-    for step in range(steps):
-        for bee in bee_array:
-            bee.move(step)
-    for bee in bee_array:
-        print(bee.trace.items())
-
-test_bees()
