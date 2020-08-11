@@ -4,6 +4,9 @@ import math
 import random
 
 
+TSTAR_RANGE = 100
+
+
 def get_uniform_coordinates(index, side_length, total):
     positionsx = numpy.linspace(0, side_length - (side_length / math.ceil(math.sqrt(total)) + 1),
                                 math.ceil(math.sqrt(total)))
