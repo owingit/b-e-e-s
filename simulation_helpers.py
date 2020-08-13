@@ -33,6 +33,25 @@ def get_initial_direction(theta_star_range):
     return all_directions[random.randint(0, theta_star_range - 1)]
 
 
+def donor_logic(donor_bee, receiver_bee, food_donation_percent, food_transition_rate):
+    donor_bee.is_engaged_in_trophallaxis = True
+    receiver_bee.is_engaged_in_trophallaxis = True
+
+    donor_bee.active_donor = True
+    receiver_bee.active_receiver = True
+
+    donor_bee.food_out_edges.append(receiver_bee.number)
+    receiver_bee.food_in_edges.append(donor_bee.number)
+
+    donor_bee.food_to_give = (donor_bee.food_level - receiver_bee.food_level) * food_donation_percent
+    receiver_bee.food_to_receive = donor_bee.food_to_give
+    donor_bee.steps_to_wait = food_transition_rate * donor_bee.food_to_give
+    receiver_bee.steps_to_wait = donor_bee.steps_to_wait
+    
+    donor_bee.agents_in_connected_component.append(receiver_bee.number)
+    receiver_bee.agents_in_connected_component = donor_bee.agents_in_connected_component
+
+
 def setup_trophallaxis(step, bee_1, bee_2, food_donation_percent, food_transition_rate):
     dist = ((bee_1.positionx[step] - bee_2.positionx[step]) ** 2 + (
                 bee_1.positiony[step] - bee_2.positiony[step]) ** 2) ** 0.5
@@ -40,24 +59,10 @@ def setup_trophallaxis(step, bee_1, bee_2, food_donation_percent, food_transitio
             dist <= 1.0 and \
             not bee_1.is_engaged_in_trophallaxis and \
             not bee_2.is_engaged_in_trophallaxis:
-        bee_1.is_engaged_in_trophallaxis = True
-        bee_2.is_engaged_in_trophallaxis = True
-        bee_2.active_receiver = True
-        bee_1.active_donor = True
-        bee_1.food_to_give = (bee_1.food_level - bee_2.food_level) * food_donation_percent
-        bee_2.food_to_receive = bee_1.food_to_give
-        bee_1.steps_to_wait = food_transition_rate * bee_1.food_to_give
-        bee_2.steps_to_wait = bee_1.steps_to_wait
+        donor_logic(bee_1, bee_2, food_donation_percent, food_transition_rate)
 
     if bee_1.food_level < bee_2.food_level and \
             dist <= 1.0 and \
             not bee_1.is_engaged_in_trophallaxis and \
             not bee_2.is_engaged_in_trophallaxis:
-        bee_1.is_engaged_in_trophallaxis = True
-        bee_2.is_engaged_in_trophallaxis = True
-        bee_1.active_receiver = True
-        bee_2.active_donor = True
-        bee_2.food_to_give = (bee_2.food_level - bee_1.food_level) * food_donation_percent
-        bee_1.food_to_receive = bee_2.food_to_give
-        bee_2.steps_to_wait = food_transition_rate * bee_2.food_to_give
-        bee_1.steps_to_wait = bee_2.steps_to_wait
+        donor_logic(bee_2, bee_1, food_donation_percent, food_transition_rate)
