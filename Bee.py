@@ -24,6 +24,7 @@ class Bee:
             self.positiony[0] = uniform_y_position
         self.direction = np.zeros(steps)
         self.direction[0] = simulation_helpers.get_initial_direction(tstar_range)
+        self.direction_set = False
         self.theta_star = tstar
         self.trace = {0: (self.positionx[0], self.positiony[0])}
 
@@ -45,6 +46,10 @@ class Bee:
         self.food_to_give = 0
         self.food_to_receive = 0
         self.steps_to_wait = 0
+        self.trophallaxis_network = nx.DiGraph()
+
+        if self.food_level == 100:
+            self.trophallaxis_network.add_node(self.number)
 
         self.bees_seen = {}  # dict mapping bee number: list of steps at which encountered
         self.food_in_edges = []  # list of bees that have fed this bee
@@ -57,8 +62,12 @@ class Bee:
         step_theta = self.theta_star[random_int]
         if current_step == 0:
             direction = self.direction[current_step]
+        elif self.direction_set:
+            direction = self.direction[current_step - 1]
+            self.direction_set = False
         else:
             direction = self.direction[current_step - 1] + step_theta
+
         if self.active_donor or self.active_receiver:
             self.engage()
             self.stay_put(current_step)
@@ -80,9 +89,6 @@ class Bee:
         self.direction[current_step] = direction
         potential_x_position = self.positionx[current_step - 1] + self.velocity * math.cos(direction)
         potential_y_position = self.positiony[current_step - 1] + self.velocity * math.sin(direction)
-
-        #  TODO: Check for obstacles, excluded volume, etc
-
         self.complete_step(current_step, potential_x_position, potential_y_position)
 
     def complete_step(self, current_step, x, y):
@@ -135,3 +141,6 @@ class Bee:
 
         if flip_direction:
             self.direction[current_step] = -self.direction[current_step]
+
+    def set_food_level(self, food_level):
+        self.food_level = food_level

@@ -12,7 +12,7 @@ import collections
 
 class Simulation:
     def __init__(self, num_bees, side_length, step_count, thetastar, r_or_u="uniform",
-                 use_periodic_boundary_conditions=True):
+                 use_periodic_boundary_conditions=True, initially_fed_percentage=0.1):
         self.total_bees = num_bees
         self.n = side_length
         self.steps = step_count
@@ -22,40 +22,62 @@ class Simulation:
         thetastars = [np.linspace(-thetastar, thetastar, simulation_helpers.TSTAR_RANGE)]
         self.thetastar = list(thetastars[random.randint(0, len(thetastars) - 1)])
         self.has_run = False
+
+        # simulation parameters
+        self.food_variance_threshold = 100
+        self.min_food_level = 5.0
+        self.r = 2.0
+
         self.food_variance_vs_time = collections.OrderedDict()
-        self.max_food_level_over_time = collections.OrderedDict()
+        self.max_donations_over_time = collections.OrderedDict()
         self.largest_cluster_over_time = collections.OrderedDict()
 
         for i in range(0, self.total_bees):
             self.bee_array.append(Bee.Bee(i, total=self.total_bees, tstar=self.thetastar,
                                           tstar_range=simulation_helpers.TSTAR_RANGE,
-                                          initially_fed_percentage=0.1, n=self.n, steps=self.steps, r_or_u=self.r_or_u,
+                                          initially_fed_percentage=initially_fed_percentage,
+                                          n=self.n, steps=self.steps, r_or_u=self.r_or_u,
                                           use_periodic_boundary_conditions=use_periodic_boundary_conditions))
+        if all(bee.food_level == 0 for bee in self.bee_array):
+            self.bee_array[0].set_food_level(100)
         self.init_stats()
 
     def init_stats(self):
         food_level_values = []
+        donation_values = []
         for bee in self.bee_array:
             food_level_values.append(bee.food_level)
+            donation_values.append(len(bee.food_out_edges))
 
         self.food_variance_vs_time[0] = statistics.variance(food_level_values)
-        self.max_food_level_over_time[0] = max(food_level_values)
+        self.max_donations_over_time[0] = max(donation_values)
         self.largest_cluster_over_time[0] = 1
 
     def run(self, food_donation_percent=0.50, food_transition_rate=1):
         for step in range(1, self.steps):
             food_level_values = []
+            donation_values = []
             cluster_sizes = []
+
             for bee in self.bee_array:
                 bee.move(step)
                 food_level_values.append(bee.food_level)
-                cluster_sizes.append(len(bee.agents_in_connected_component))
+                donation_values.append(len(bee.food_out_edges))
+                cluster_sizes.append(len(bee.trophallaxis_network.nodes()))
             self.food_variance_vs_time[step] = statistics.variance(food_level_values)
-            self.max_food_level_over_time[step] = max(food_level_values)
+            self.max_donations_over_time[step] = max(donation_values)
             self.largest_cluster_over_time[step] = max(cluster_sizes)
             for bee_1, bee_2 in itertools.combinations(self.bee_array, 2):
+                simulation_helpers.adjust_direction_for_attraction(step, bee_1, bee_2, self.r)
                 simulation_helpers.setup_trophallaxis(step, bee_1, bee_2, food_donation_percent, food_transition_rate)
 
+            if all([bee.food_level > self.min_food_level for bee in self.bee_array]):
+                print("Convergence due to min food level reached after {} steps".format(step))
+                break
+
+            if self.food_variance_vs_time[step] <= self.food_variance_threshold:
+                print("Convergence due to variance reached after {} steps".format(step))
+                break
         self.has_run = True
 
     def animate_walk(self):
@@ -109,7 +131,7 @@ class Simulation:
             plot_dict = self.food_variance_vs_time
             for key, value in plot_dict.items():
                 plot_dict[key] = math.sqrt(value)
-        if identifier == "max_food_level":
-            plot_dict = self.max_food_level_over_time
+        if identifier == "max_donations":
+            plot_dict = self.max_donations_over_time
 
         return plot_dict
