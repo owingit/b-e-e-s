@@ -56,8 +56,6 @@ class Simulation:
 
     def run(self, food_donation_percent=0.50, food_transition_rate=1):
         for step in range(1, self.steps):
-            fed_bees = [bee for bee in self.bee_array if bee.food_level > 0]
-            num_fed_bees = len(fed_bees)
             food_level_values = []
             donation_values = []
             cluster_sizes = []
@@ -68,9 +66,6 @@ class Simulation:
                 food_level_values.append(bee.food_level)
                 donation_values.append(len(bee.food_out_edges))
 
-            for bee in self.bee_array:
-                clusters.add(frozenset(bee.cluster))
-            self.cluster_count_over_time[step] = len(clusters)
             self.food_variance_vs_time[step] = statistics.variance(food_level_values)
             self.max_donations_over_time[step] = max(donation_values)
             for bee_1, bee_2 in itertools.combinations(self.bee_array, 2):
@@ -88,8 +83,11 @@ class Simulation:
             if self.food_variance_vs_time[step] <= self.food_variance_threshold:
                 print("Convergence due to variance reached after {} steps".format(step))
                 break
+
             for bee in self.bee_array:
                 cluster_sizes.append(bee.cluster_size[step])
+                clusters.add(frozenset(bee.cluster))
+            self.cluster_count_over_time[step] = len(clusters)
             self.largest_cluster_over_time[step] = max(cluster_sizes)
 
         self.has_run = True
