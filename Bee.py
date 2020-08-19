@@ -55,7 +55,8 @@ class Bee:
         self.food_in_edges = []  # list of bees that have fed this bee
         self.food_out_edges = []  # list of bees that have been fed by this bee
         self.agents_in_connected_component = [i]
-        self.counts_for_encounter = True
+        self.cluster = [i]
+        self.cluster_size = np.zeros(steps)
 
     def move(self, current_step):
         random_int = random.randint(0, 99)
@@ -96,6 +97,7 @@ class Bee:
         self.positiony[current_step] = y
         self.boundary_conditions(current_step)
         self.trace[current_step] = (self.positionx[current_step], self.positiony[current_step])
+        self.velocity = 1.0
 
     def stay_put(self, current_step):
         self.direction[current_step] = self.direction[current_step - 1]

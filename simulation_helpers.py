@@ -58,9 +58,7 @@ def feeding_logic(donor_bee, receiver_bee, food_donation_percent, food_transitio
     receiver_bee.agents_in_connected_component = donor_bee.agents_in_connected_component
 
 
-def setup_trophallaxis(step, bee_1, bee_2, food_donation_percent, food_transition_rate):
-    dist = ((bee_1.positionx[step] - bee_2.positionx[step]) ** 2 +
-            (bee_1.positiony[step] - bee_2.positiony[step]) ** 2) ** 0.5
+def setup_trophallaxis(step, dist, bee_1, bee_2, food_donation_percent, food_transition_rate):
     if bee_1.food_level > bee_2.food_level and \
             dist <= 1.0 and \
             not bee_1.is_engaged_in_trophallaxis and \
@@ -69,7 +67,7 @@ def setup_trophallaxis(step, bee_1, bee_2, food_donation_percent, food_transitio
         bee_1.bees_seen[step] = bee_2.number
         bee_2.bees_seen[step] = bee_1.number
 
-    if bee_1.food_level < bee_2.food_level and \
+    elif bee_1.food_level < bee_2.food_level and \
             dist <= 1.0 and \
             not bee_1.is_engaged_in_trophallaxis and \
             not bee_2.is_engaged_in_trophallaxis:
@@ -77,14 +75,29 @@ def setup_trophallaxis(step, bee_1, bee_2, food_donation_percent, food_transitio
         bee_1.bees_seen[step] = bee_2.number
         bee_2.bees_seen[step] = bee_1.number
 
+    elif dist <= 1.0:
+        bee_1.velocity /= random.randint(2, 6)
+        bee_1.direction[step] += math.pi / random.randint(8, 16)
+        bee_1.direction_set = True
+        bee_2.velocity /= random.randint(2, 6)
+        bee_2.direction[step] += math.pi / random.randint(8, 16)
+        bee_2.direction_set = True
 
-def adjust_direction_for_attraction(step, bee_1, bee_2, r):
-    dist = ((bee_1.positionx[step] - bee_2.positionx[step]) ** 2 +
-            (bee_1.positiony[step] - bee_2.positiony[step]) ** 2) ** 0.5
-    if dist < 2 * r:
+
+def adjust_direction_for_attraction(step, dist, bee_1, bee_2, r):
+    if dist < 2 * r and not bee_1.direction_set and not bee_2.direction_set:
         theta = math.atan((bee_2.positiony[step] - bee_1.positiony[step]) /
                           (bee_2.positionx[step] - bee_1.positionx[step]))
         bee_1.direction[step] = (theta + math.pi) % (2 * math.pi)
         bee_1.direction_set = True
         bee_2.direction[step] = theta
         bee_2.direction_set = True
+
+
+def populate_clusters(step, dist, bee_1, bee_2, r):
+    if dist < r:
+        bee_1.cluster.extend(bee_2.cluster)
+        bee_1.cluster = list(set(bee_1.cluster))
+        bee_2.cluster = bee_1.cluster
+        bee_1.cluster_size[step] = len(bee_1.cluster)
+        bee_2.cluster_size[step] = len(bee_1.cluster)

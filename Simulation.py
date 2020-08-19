@@ -31,6 +31,7 @@ class Simulation:
         self.food_variance_vs_time = collections.OrderedDict()
         self.max_donations_over_time = collections.OrderedDict()
         self.largest_cluster_over_time = collections.OrderedDict()
+        self.cluster_count_over_time = collections.OrderedDict()
 
         for i in range(0, self.total_bees):
             self.bee_array.append(Bee.Bee(i, total=self.total_bees, tstar=self.thetastar,
@@ -55,21 +56,30 @@ class Simulation:
 
     def run(self, food_donation_percent=0.50, food_transition_rate=1):
         for step in range(1, self.steps):
+            fed_bees = [bee for bee in self.bee_array if bee.food_level > 0]
+            num_fed_bees = len(fed_bees)
             food_level_values = []
             donation_values = []
             cluster_sizes = []
+            clusters = set()
 
             for bee in self.bee_array:
                 bee.move(step)
                 food_level_values.append(bee.food_level)
                 donation_values.append(len(bee.food_out_edges))
-                cluster_sizes.append(len(bee.trophallaxis_network.nodes()))
+
+            for bee in self.bee_array:
+                clusters.add(frozenset(bee.cluster))
+            self.cluster_count_over_time[step] = len(clusters)
             self.food_variance_vs_time[step] = statistics.variance(food_level_values)
             self.max_donations_over_time[step] = max(donation_values)
-            self.largest_cluster_over_time[step] = max(cluster_sizes)
             for bee_1, bee_2 in itertools.combinations(self.bee_array, 2):
-                simulation_helpers.adjust_direction_for_attraction(step, bee_1, bee_2, self.r)
-                simulation_helpers.setup_trophallaxis(step, bee_1, bee_2, food_donation_percent, food_transition_rate)
+                dist = ((bee_1.positionx[step] - bee_2.positionx[step]) ** 2 +
+                        (bee_1.positiony[step] - bee_2.positiony[step]) ** 2) ** 0.5
+                simulation_helpers.populate_clusters(step, dist, bee_1, bee_2, self.r)
+                simulation_helpers.adjust_direction_for_attraction(step, dist, bee_1, bee_2, self.r)
+                simulation_helpers.setup_trophallaxis(step, dist, bee_1, bee_2,
+                                                      food_donation_percent, food_transition_rate)
 
             if all([bee.food_level > self.min_food_level for bee in self.bee_array]):
                 print("Convergence due to min food level reached after {} steps".format(step))
@@ -78,6 +88,10 @@ class Simulation:
             if self.food_variance_vs_time[step] <= self.food_variance_threshold:
                 print("Convergence due to variance reached after {} steps".format(step))
                 break
+            for bee in self.bee_array:
+                cluster_sizes.append(bee.cluster_size[step])
+            self.largest_cluster_over_time[step] = max(cluster_sizes)
+
         self.has_run = True
 
     def animate_walk(self):
@@ -123,10 +137,12 @@ class Simulation:
 
     def get_timeseries_stats(self, identifier="variance"):
         plot_dict = None
+        secondary_plot_dict = None
         if identifier == "variance":
             plot_dict = self.food_variance_vs_time
-        if identifier == "num_donation_events":
-            plot_dict = self.largest_cluster_over_time
+        if identifier == "num_clusters":
+            plot_dict = self.cluster_count_over_time
+            secondary_plot_dict = self.largest_cluster_over_time
         if identifier == "stdev":
             plot_dict = self.food_variance_vs_time
             for key, value in plot_dict.items():
@@ -134,4 +150,4 @@ class Simulation:
         if identifier == "max_donations":
             plot_dict = self.max_donations_over_time
 
-        return plot_dict
+        return plot_dict, secondary_plot_dict
